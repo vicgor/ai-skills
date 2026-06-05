@@ -1,0 +1,81 @@
+id: git.resolve-merge-conflict
+version: "1.0.0"
+owner: victor
+status: stable
+tags: [git, merge, conflict, rebase]
+
+intent: >
+  Разрешить конфликт слияния: анализ обеих сторон, стратегия,
+  итоговая версия с объяснением решения.
+
+use_when:
+  - Есть git conflict markers (<<<<<<, =======, >>>>>>>)
+  - Нужна стратегия: взять ours/theirs/объединить
+  - Непонятно как объединить конкурирующие изменения
+
+avoid_when:
+  - Нет текста конфликта
+
+inputs:
+  required:
+    - name: conflict_diff
+      description: "Файл(ы) с conflict markers"
+  optional:
+    - name: context
+      description: "Что делает каждая ветка, цель слияния"
+    - name: our_branch
+      description: "Название нашей ветки и что в ней менялось"
+    - name: their_branch
+      description: "Название входящей ветки и что в ней менялось"
+    - name: strategy
+      description: "Предпочтительная стратегия: ours, theirs, merge, ask"
+      default: "ask"
+
+output_contract:
+  format: markdown
+  must_include:
+    - conflict_analysis  # что конкретно конфликтует и почему
+    - resolution_strategy
+    - resolved_code      # итоговый код без conflict markers
+    - explanation        # почему принято такое решение
+  prefer:
+    - highlight risky parts of the resolution
+    - suggest tests to verify correctness
+
+prompt_template: |
+  {common_style}
+  {common_safety}
+
+  Ты senior engineer, разрешаешь git merge conflict.
+
+  ## Задача: разрешить конфликт слияния
+
+  **Наша ветка:** {our_branch}
+  **Входящая ветка:** {their_branch}
+  **Стратегия:** {strategy}
+  **Контекст:** {context}
+
+  ## Конфликт
+
+  ```
+  {conflict_diff}
+  ```
+
+  ## Требования к ответу
+
+  1. Анализ: что именно конфликтует (логика, форматирование, оба варианта правы?).
+  2. Стратегия разрешения с обоснованием.
+  3. Итоговый код без conflict markers — готов к коммиту.
+  4. Объяснение: почему именно так, что потеряли из каждой стороны.
+  5. Риски: что может сломаться, что проверить тестами.
+  6. Если данных недостаточно для уверенного решения — перечисли что нужно уточнить.
+
+quality_checks:
+  - has_analysis: true
+  - has_resolved_code_without_markers: true
+  - has_explanation: true
+  - has_risk_note: true
+
+known_failures:
+  - "Модель выбирает одну сторону без объяснения → требовать обоснование"
+  - "Модель не замечает семантический конфликт (оба варианта синтаксически верны) → передавать context"

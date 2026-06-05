@@ -1,7 +1,7 @@
 # Каталог всех скиллов
 # Обновляй при добавлении/изменении скилла.
 
-version: "1.0"
+version: "1.1"
 
 domains:
   python-cli:
@@ -48,3 +48,89 @@ domains:
         intent: "Генерация help text, usage, epilog"
         inputs_required: [command_description]
         output: "help text + usage examples + epilog"
+
+  db-sql:
+    description: "SQL-запросы, схемы, миграции, диагностика (MariaDB/MySQL/PostgreSQL)"
+    skills:
+      - id: db-sql.query-optimize
+        file: skills/db-sql/query-optimize.yaml
+        status: stable
+        intent: "Анализ и оптимизация медленного SQL-запроса"
+        inputs_required: [query]
+        output: "диагностика + индексы + переписанный запрос + риски"
+
+      - id: db-sql.schema-review
+        file: skills/db-sql/schema-review.yaml
+        status: stable
+        intent: "Ревью DDL-схемы: типы, индексы, нормализация"
+        inputs_required: [schema]
+        output: "список проблем + исправленный DDL + приоритеты"
+
+      - id: db-sql.write-migration
+        file: skills/db-sql/write-migration.yaml
+        status: stable
+        intent: "Написание безопасной up/down миграции"
+        inputs_required: [change_description, current_schema]
+        output: "up + down SQL + анализ блокировок + шаги деплоя"
+
+      - id: db-sql.diagnose-performance
+        file: skills/db-sql/diagnose-performance.yaml
+        status: stable
+        intent: "Диагностика проблем производительности БД по симптомам"
+        inputs_required: [symptoms]
+        output: "вероятные причины + план диагностики + быстрые меры"
+
+  devops:
+    description: "Docker, systemd, GitHub Actions, Ubuntu hardening"
+    skills:
+      - id: devops.debug-deployment
+        file: skills/devops/debug-deployment.yaml
+        status: stable
+        intent: "Диагностика упавшего деплоя по логам"
+        inputs_required: [error_logs]
+        output: "root cause + гипотезы + план восстановления + проверка"
+
+      - id: devops.write-dockerfile
+        file: skills/devops/write-dockerfile.yaml
+        status: stable
+        intent: "Production-ready Dockerfile для Python (multi-stage, uv, non-root)"
+        inputs_required: [app_description]
+        output: "Dockerfile + .dockerignore + команды + security notes"
+
+      - id: devops.github-actions-workflow
+        file: skills/devops/github-actions-workflow.yaml
+        status: stable
+        intent: "CI/CD workflow для Python: lint/test/deploy, кэш, matrix"
+        inputs_required: [goal, project_context]
+        output: "workflow YAML + secrets list + optimization notes"
+
+      - id: devops.server-hardening-checklist
+        file: skills/devops/server-hardening-checklist.yaml
+        status: stable
+        intent: "Hardening Ubuntu VPS: SSH, UFW, fail2ban, мониторинг"
+        inputs_required: [server_description]
+        output: "чек-лист + конфиги + команды проверки + приоритеты"
+
+  git:
+    description: "Git workflow: коммиты, PR, конфликты, история"
+    skills:
+      - id: git.write-commit-message
+        file: skills/git/write-commit-message.yaml
+        status: stable
+        intent: "Написать conventional commit message по diff или описанию"
+        inputs_required: [diff_or_description]
+        output: "commit message + опциональный body + footers"
+
+      - id: git.pr-description
+        file: skills/git/pr-description.yaml
+        status: stable
+        intent: "Написать описание PR: что, зачем, как проверить"
+        inputs_required: [diff_or_description, goal]
+        output: "PR title + description + checklist"
+
+      - id: git.resolve-merge-conflict
+        file: skills/git/resolve-merge-conflict.yaml
+        status: stable
+        intent: "Разрешить конфликт слияния: анализ, стратегия, итог"
+        inputs_required: [conflict_diff]
+        output: "анализ конфликта + resolved версия + объяснение"

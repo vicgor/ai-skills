@@ -1,0 +1,43 @@
+skill_id: git.write-commit-message
+description: "Тест-кейсы для проверки скилла write-commit-message"
+
+cases:
+  - id: simple_bugfix
+    description: "Простой баг-фикс — subject должен быть fix(scope)"
+    input:
+      style: conventional
+      scope: db
+      breaking: "no"
+      diff_or_description: |
+        Исправлена ошибка в функции get_user_by_email:
+        не экранировались спецсимволы в email при построении запроса,
+        что приводило к SQL ошибке при адресах вида user+tag@example.com
+    expected:
+      must_contain:
+        - "fix"
+        - "db"
+        - "email"
+      should_not_contain:
+        - "added"
+        - "fixed"
+        - "changed"
+      quality:
+        uses_imperative: true
+        subject_under_72: true
+
+  - id: breaking_change
+    description: "Breaking change — должен быть BREAKING CHANGE footer"
+    input:
+      style: conventional
+      scope: cli
+      breaking: "yes"
+      diff_or_description: |
+        Переименована опция --output-dir в --out для краткости.
+        Старое название больше не поддерживается.
+    expected:
+      must_contain:
+        - "BREAKING CHANGE"
+        - "--out"
+      quality:
+        has_breaking_change_footer: true
+        subject_under_72: true

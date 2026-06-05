@@ -1,0 +1,85 @@
+id: git.write-commit-message
+version: "1.0.0"
+owner: victor
+status: stable
+tags: [git, commit, conventional-commits, changelog]
+
+intent: >
+  Написать правильный conventional commit message по git diff
+  или текстовому описанию изменений.
+
+use_when:
+  - Нужен commit message по diff
+  - Нужно привести существующий message к conventional commits
+  - Нужно написать message с body и footers (breaking change, closes #N)
+
+avoid_when:
+  - Нет описания что изменилось
+  - Нужен PR description (используй pr-description)
+
+inputs:
+  required:
+    - name: diff_or_description
+      description: "git diff или текстовое описание изменений"
+  optional:
+    - name: scope
+      description: "Scope для conventional commit (cli, db, api и т.п.)"
+    - name: issue_ref
+      description: "Номер issue/тикета если нужно добавить в footer"
+    - name: breaking
+      description: "Есть ли breaking change (yes/no)"
+      default: "no"
+    - name: style
+      description: "Стиль: conventional (feat/fix/chore), gitmoji, plain"
+      default: "conventional"
+
+output_contract:
+  format: markdown
+  must_include:
+    - commit_subject    # первая строка: тип(scope): описание
+    - commit_body       # опционально — почему, а не что
+    - footers           # BREAKING CHANGE, Closes #N если нужно
+  prefer:
+    - subject <= 72 chars
+    - imperative mood in English
+    - body explains WHY not WHAT
+    - provide 2-3 alternatives if change is ambiguous
+
+prompt_template: |
+  {common_style}
+  {common_safety}
+
+  Ты опытный инженер, знающий Git best practices и Conventional Commits v1.0.
+
+  ## Задача: написать commit message
+
+  **Стиль:** {style}
+  **Scope:** {scope}
+  **Breaking change:** {breaking}
+  **Issue/тикет:** {issue_ref}
+
+  ## Изменения (diff или описание)
+
+  ```
+  {diff_or_description}
+  ```
+
+  ## Требования к ответу
+
+  1. Первая строка (subject): тип(scope): краткое описание, ≤72 символа, imperative mood.
+  2. Пустая строка.
+  3. Body (если нужен): почему сделано изменение, не что.
+  4. Footers: BREAKING CHANGE если есть, Closes #N если передан issue_ref.
+  5. Если изменение неоднозначное — дай 2-3 варианта subject с объяснением разницы.
+  6. Если данных недостаточно — перечисли что уточнить.
+
+quality_checks:
+  - subject_under_72_chars: true
+  - uses_imperative_mood: true
+  - type_is_valid_conventional: true
+  - has_body_if_nontrivial: true
+
+known_failures:
+  - "Модель пишет subject в прошедшем времени (added, fixed) → нужен imperative (add, fix)"
+  - "Модель игнорирует scope → передавать явно"
+  - "Модель пишет WHAT в body вместо WHY → уточнить в follow-up"

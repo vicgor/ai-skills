@@ -1,0 +1,90 @@
+id: git.pr-description
+version: "1.0.0"
+owner: victor
+status: stable
+tags: [git, pull-request, github, code-review, documentation]
+
+intent: >
+  Написать структурированное описание Pull Request:
+  что изменилось, зачем, как проверить, чеклист для ревьюера.
+
+use_when:
+  - Нужно описание PR перед открытием
+  - Нужно улучшить существующее описание
+  - Нужен шаблон с testing instructions
+
+avoid_when:
+  - Нет diff и нет описания изменений
+
+inputs:
+  required:
+    - name: diff_or_description
+      description: "git diff, список изменённых файлов или текстовое описание"
+    - name: goal
+      description: "Зачем этот PR: задача, проблема, улучшение"
+  optional:
+    - name: issue_ref
+      description: "Closes #N / связанные issues"
+    - name: breaking_changes
+      description: "Есть ли breaking changes"
+      default: "нет"
+    - name: testing_context
+      description: "Как запускать: команды, тестовые данные, окружение"
+    - name: pr_template
+      description: "Существующий .github/pull_request_template.md если есть"
+
+output_contract:
+  format: markdown
+  must_include:
+    - pr_title
+    - summary           # 2-3 строки: что и зачем
+    - changes_list      # конкретные изменения
+    - testing_instructions
+    - reviewer_checklist
+  prefer:
+    - mention breaking changes prominently
+    - include screenshots/commands where relevant
+    - keep summary scannable (bullets over prose)
+
+prompt_template: |
+  {common_style}
+  {common_safety}
+
+  Ты senior engineer, пишешь PR description для code review.
+
+  ## Задача: описание Pull Request
+
+  **Цель PR:** {goal}
+  **Breaking changes:** {breaking_changes}
+  **Issue:** {issue_ref}
+  **Тестовый контекст:** {testing_context}
+
+  ## Изменения
+
+  ```
+  {diff_or_description}
+  ```
+
+  ## Шаблон проекта (если есть)
+
+  {pr_template}
+
+  ## Требования к ответу
+
+  1. Заголовок PR (≤72 символа).
+  2. Summary: что изменилось и зачем — 2-3 предложения, читается за 10 секунд.
+  3. Changes: конкретный список изменений по файлам/компонентам.
+  4. Testing instructions: точные команды для проверки.
+  5. Checklist для ревьюера: на что обратить внимание.
+  6. Если есть breaking changes — выдели отдельным блоком ⚠️.
+
+quality_checks:
+  - has_title: true
+  - has_summary: true
+  - has_testing_instructions: true
+  - has_reviewer_checklist: true
+  - breaking_changes_highlighted: true
+
+known_failures:
+  - "Модель пишет общий summary без конкретики → передавать diff явно"
+  - "Модель не включает команды тестирования → передавать testing_context"
