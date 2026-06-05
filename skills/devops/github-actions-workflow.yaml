@@ -1,0 +1,95 @@
+id: devops.github-actions-workflow
+version: "1.0.0"
+owner: victor
+status: stable
+tags: [devops, github-actions, ci-cd, python, testing, deployment]
+
+intent: >
+  Написание или оптимизация GitHub Actions workflow для Python-проекта:
+  тесты, lint, build, deploy, кэширование, matrix.
+
+use_when:
+  - Нужен новый CI/CD workflow
+  - Нужно оптимизировать существующий (кэш, скорость, матрица)
+  - Нужно добавить шаг деплоя или миграции БД
+  - Нужно настроить секреты и окружения
+
+avoid_when:
+  - Нет описания проекта и того, что должен делать workflow
+
+inputs:
+  required:
+    - name: goal
+      description: "Что должен делать workflow"
+    - name: project_context
+      description: "Тип проекта: Python CLI / API, стек, зависимости"
+  optional:
+    - name: python_version
+      description: "Версия(и) Python для matrix"
+      default: "3.12"
+    - name: package_manager
+      description: "uv, pip, poetry"
+      default: "uv"
+    - name: existing_workflow
+      description: "Текущий workflow YAML если нужна оптимизация"
+    - name: deploy_target
+      description: "Куда деплоить: VPS/SSH, Docker Hub, PyPI, нет"
+      default: "нет"
+    - name: requirements
+      description: "Особые требования: matrix, secrets, environments, DB service"
+
+output_contract:
+  format: markdown
+  must_include:
+    - workflow_yaml      # готовый .github/workflows/*.yml
+    - secrets_list       # какие секреты нужно добавить в GitHub
+    - optimization_notes # как оптимизированы кэш и время запуска
+  prefer:
+    - cache dependencies (uv/pip cache)
+    - fail-fast matrix
+    - separate jobs for lint/test/deploy
+    - show secrets usage safely
+
+prompt_template: |
+  {common_style}
+  {common_safety}
+
+  Ты senior DevOps engineer, специализируешься на GitHub Actions для Python.
+
+  ## Задача: GitHub Actions workflow
+
+  **Python:** {python_version}
+  **Менеджер пакетов:** {package_manager}
+  **Цель workflow:** {goal}
+  **Деплой:** {deploy_target}
+  **Особые требования:** {requirements}
+
+  ## Контекст проекта
+
+  {project_context}
+
+  ## Существующий workflow (если есть)
+
+  ```yaml
+  {existing_workflow}
+  ```
+
+  ## Требования к ответу
+
+  1. Готовый YAML файл для .github/workflows/.
+  2. Структура: отдельные jobs для lint, test, build, deploy (если нужно).
+  3. Кэширование зависимостей ({package_manager} cache).
+  4. Список секретов для Settings → Secrets and variables.
+  5. Если matrix — покажи как настроить.
+  6. Комментарии к нетривиальным шагам.
+
+quality_checks:
+  - has_workflow_yaml: true
+  - has_dependency_caching: true
+  - has_secrets_list: true
+  - jobs_are_separated: true
+
+known_failures:
+  - "Модель не кэширует зависимости → требовать явно"
+  - "Модель использует устаревшие actions версии → проверять вручную"
+  - "Модель хардкодит секреты → safety.md это запрещает, но лучше проверить"

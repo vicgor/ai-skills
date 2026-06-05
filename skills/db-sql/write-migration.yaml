@@ -1,0 +1,94 @@
+id: db-sql.write-migration
+version: "1.0.0"
+owner: victor
+status: stable
+tags: [sql, mysql, mariadb, migration, alembic, flyway, ddl]
+
+intent: >
+  Написание безопасной SQL-миграции: up/down скрипты, проверка на
+  обратную совместимость, оценка рисков блокировки.
+
+use_when:
+  - Нужно добавить/изменить/удалить колонку, индекс, таблицу
+  - Нужен Alembic/Flyway/raw SQL миграционный скрипт
+  - Нужно оценить риски ALTER TABLE на prod
+
+avoid_when:
+  - Нет описания изменения схемы
+
+inputs:
+  required:
+    - name: change_description
+      description: "Что нужно изменить в схеме"
+    - name: current_schema
+      description: "Текущий DDL таблицы(ц)"
+  optional:
+    - name: engine
+      description: "БД: mysql, mariadb, postgresql"
+      default: "mariadb"
+    - name: migration_tool
+      description: "Инструмент: alembic, flyway, raw-sql, liquibase"
+      default: "raw-sql"
+    - name: table_size
+      description: "Примерный размер таблицы (строк/GB) для оценки рисков"
+    - name: zero_downtime
+      description: "Нужно ли zero-downtime (online DDL / pt-online-schema-change)"
+      default: "нет"
+
+output_contract:
+  format: markdown
+  must_include:
+    - risk_assessment    # уровень риска и почему
+    - up_migration       # SQL up скрипт
+    - down_migration     # SQL down / rollback скрипт
+    - lock_analysis      # какие блокировки и как долго
+    - deployment_steps   # шаги применения
+  prefer:
+    - note if pt-osc or gh-ost needed for large tables
+    - include pre/post checks
+    - mark destructive operations clearly
+
+prompt_template: |
+  {common_style}
+  {common_safety}
+
+  Ты senior DBA, специализируешься на безопасных миграциях {engine}.
+
+  ## Задача: написать миграцию схемы
+
+  **БД:** {engine}
+  **Инструмент:** {migration_tool}
+  **Размер таблицы:** {table_size}
+  **Zero-downtime требование:** {zero_downtime}
+
+  ## Что изменить
+
+  {change_description}
+
+  ## Текущая схема
+
+  ```sql
+  {current_schema}
+  ```
+
+  ## Требования к ответу
+
+  1. Оценка риска: уровень (low/medium/high) и почему.
+  2. Up-миграция (применить изменение).
+  3. Down-миграция (откатить изменение).
+  4. Анализ блокировок: какие локи, как долго, при каком размере таблицы критично.
+  5. Если нужен pt-online-schema-change или gh-ost — укажи когда и команду.
+  6. Шаги деплоя: pre-check → применить → post-check.
+  7. Деструктивные операции (DROP COLUMN, TRUNCATE) явно помечай ⚠️.
+
+quality_checks:
+  - has_risk_assessment: true
+  - has_up_migration: true
+  - has_down_migration: true
+  - has_lock_analysis: true
+  - has_deployment_steps: true
+  - marks_destructive_ops: true
+
+known_failures:
+  - "Модель не предупреждает о блокировке на больших таблицах → передавать table_size"
+  - "Модель пишет только up без down → добавить требование явно"

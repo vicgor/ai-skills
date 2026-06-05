@@ -1,0 +1,88 @@
+id: devops.debug-deployment
+version: "1.0.0"
+owner: victor
+status: stable
+tags: [devops, docker, systemd, deployment, debug, logs]
+
+intent: >
+  Диагностика упавшего или зависшего деплоя: docker, systemd, ansible.
+  Root cause по логам, план восстановления.
+
+use_when:
+  - Деплой упал или завис
+  - Сервис не стартует после обновления
+  - Есть логи ошибок из docker/systemd/ansible
+
+avoid_when:
+  - Нет логов и нет описания симптомов
+
+inputs:
+  required:
+    - name: error_logs
+      description: "Логи ошибок: docker logs, journalctl, ansible output"
+  optional:
+    - name: deployment_type
+      description: "Тип деплоя: docker-compose, systemd, ansible, k8s"
+      default: "docker-compose"
+    - name: environment
+      description: "Окружение: Ubuntu версия, Python версия и т.п."
+      default: "Ubuntu 22.04"
+    - name: what_changed
+      description: "Что изменилось перед проблемой"
+    - name: current_config
+      description: "Текущий конфиг: docker-compose.yml, unit-файл и т.п."
+
+output_contract:
+  format: markdown
+  must_include:
+    - root_cause
+    - hypotheses
+    - recovery_plan      # пронумерованные шаги
+    - verification       # как убедиться что починили
+  prefer:
+    - provide exact shell commands
+    - distinguish quick rollback vs proper fix
+
+prompt_template: |
+  {common_style}
+  {common_safety}
+
+  Ты senior DevOps engineer, специализируешься на Linux/Docker/systemd.
+
+  ## Задача: диагностика упавшего деплоя
+
+  **Тип деплоя:** {deployment_type}
+  **Окружение:** {environment}
+  **Что изменилось:** {what_changed}
+
+  ## Логи ошибок
+
+  ```
+  {error_logs}
+  ```
+
+  ## Текущий конфиг (если есть)
+
+  ```
+  {current_config}
+  ```
+
+  ## Требования к ответу
+
+  1. Root cause одной фразой.
+  2. Гипотезы (2-3, от наиболее вероятной).
+  3. Для каждой гипотезы — команда для проверки.
+  4. План восстановления: быстрый rollback vs правильный fix.
+  5. Как проверить что всё работает (smoke test).
+  6. Если данных мало — что уточнить.
+
+quality_checks:
+  - has_root_cause: true
+  - has_hypotheses: true
+  - has_recovery_plan: true
+  - has_verification: true
+  - commands_are_specific: true
+
+known_failures:
+  - "Модель не различает rollback и fix → требовать оба варианта явно"
+  - "Модель предлагает команды без учёта ОС → указывать environment"

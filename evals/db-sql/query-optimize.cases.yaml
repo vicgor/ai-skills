@@ -1,0 +1,78 @@
+skill_id: db-sql.query-optimize
+description: "Тест-кейсы для проверки скилла query-optimize"
+
+cases:
+  - id: n_plus_one_query
+    description: "N+1 запрос в цикле — переписать в JOIN"
+    input:
+      engine: mariadb
+      goal: "убрать N+1, снизить количество запросов к БД"
+      query: |
+        -- Этот запрос вызывается в цикле для каждого user_id
+        SELECT o.id, o.total, o.created_at
+        FROM orders o
+        WHERE o.user_id = ?
+        ORDER BY o.created_at DESC
+        LIMIT 10
+      schema: |
+        CREATE TABLE users (
+          id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+          email VARCHAR(255) NOT NULL,
+          created_at DATETIME NOT NULL
+        ) ENGINE=InnoDB;
+
+        CREATE TABLE orders (
+          id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+          user_id INT UNSIGNED NOT NULL,
+          total DECIMAL(10,2) NOT NULL,
+          created_at DATETIME NOT NULL,
+          INDEX idx_user_created (user_id, created_at)
+        ) ENGINE=InnoDB;
+      table_sizes: "users: 50k строк, orders: 2M строк"
+    expected:
+      must_contain:
+        - "JOIN"
+        - "IN"
+        - "индекс"
+      should_not_contain:
+        - "FORCE INDEX"
+      quality:
+        has_diagnosis: true
+        has_rewritten_query: true
+        has_index_suggestions: true
+
+  - id: missing_composite_index
+    description: "Запрос с range + equality — нужен составной индекс"
+    input:
+      engine: mariadb
+      goal: "ускорить запрос фильтрации транзакций"
+      query: |
+        SELECT t.id, t.amount, t.status, t.created_at
+        FROM transactions t
+        WHERE t.account_id = 42
+          AND t.status = 'pending'
+          AND t.created_at >= '2026-01-01'
+        ORDER BY t.created_at DESC
+      explain_output: |
+        id  select_type  table  type  possible_keys  key   rows   Extra
+        1   SIMPLE       t      ALL   NULL           NULL  980000  Using where; Using filesort
+      schema: |
+        CREATE TABLE transactions (
+          id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+          account_id INT UNSIGNED NOT NULL,
+          amount DECIMAL(12,2) NOT NULL,
+          status ENUM('pending','completed','failed') NOT NULL,
+          created_at DATETIME NOT NULL
+        ) ENGINE=InnoDB;
+      table_sizes: "transactions: 1M строк"
+    expected:
+      must_contain:
+        - "CREATE INDEX"
+        - "account_id"
+        - "status"
+        - "created_at"
+        - "full scan"
+      quality:
+        has_diagnosis: true
+        has_index_suggestions: true
+        has_verification: true

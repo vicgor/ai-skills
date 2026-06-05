@@ -1,0 +1,57 @@
+skill_id: devops.debug-deployment
+description: "Тест-кейсы для проверки скилла debug-deployment"
+
+cases:
+  - id: docker_port_already_in_use
+    description: "docker-compose up падает из-за занятого порта"
+    input:
+      deployment_type: docker-compose
+      environment: "Ubuntu 22.04, Docker 26"
+      what_changed: "добавлен новый сервис в docker-compose.yml"
+      error_logs: |
+        Error response from daemon: driver failed programming external
+        connectivity on endpoint app_web_1:
+        Bind for 0.0.0.0:8080 failed: port is already allocated
+    expected:
+      must_contain:
+        - "порт"
+        - "lsof"
+        - "netstat"
+      quality:
+        has_root_cause: true
+        has_recovery_plan: true
+        has_verification: true
+
+  - id: systemd_service_failed
+    description: "systemd unit не стартует после деплоя"
+    input:
+      deployment_type: systemd
+      environment: "Ubuntu 22.04, Python 3.12, uv"
+      what_changed: "обновлён Python-сервис через git pull + uv sync"
+      error_logs: |
+        Jun 05 21:15:03 srv systemd[1]: myapp.service: Main process exited, code=exited, status=1/FAILURE
+        Jun 05 21:15:03 srv systemd[1]: myapp.service: Failed with result 'exit-code'.
+        Jun 05 21:15:03 srv myapp[48291]: ModuleNotFoundError: No module named 'pydantic_settings'
+      current_config: |
+        [Unit]
+        Description=My Python App
+        After=network.target
+
+        [Service]
+        User=appuser
+        WorkingDirectory=/opt/myapp
+        ExecStart=/opt/myapp/.venv/bin/python -m myapp
+        Restart=on-failure
+
+        [Install]
+        WantedBy=multi-user.target
+    expected:
+      must_contain:
+        - "ModuleNotFoundError"
+        - "pydantic_settings"
+        - "uv"
+        - "venv"
+      quality:
+        has_root_cause: true
+        has_recovery_plan: true
+        has_verification: true

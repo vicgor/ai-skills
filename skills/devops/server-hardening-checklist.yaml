@@ -1,0 +1,87 @@
+id: devops.server-hardening-checklist
+version: "1.0.0"
+owner: victor
+status: stable
+tags: [devops, security, ubuntu, vps, hardening, ssh, firewall, fail2ban]
+
+intent: >
+  Генерация чек-листа и конфигов для hardening Ubuntu VPS:
+  SSH, firewall, fail2ban, обновления, мониторинг, бэкапы.
+
+use_when:
+  - Новый VPS нужно защитить
+  - Нужен аудит безопасности существующего сервера
+  - Нужны конфиги SSH/UFW/fail2ban под конкретный стек
+
+avoid_when:
+  - Нет описания что на сервере (стек, сервисы)
+
+inputs:
+  required:
+    - name: server_description
+      description: "Что на сервере: ОС, сервисы (Python API, MariaDB, Nginx и т.п.)"
+  optional:
+    - name: os_version
+      description: "Версия Ubuntu"
+      default: "Ubuntu 22.04 LTS"
+    - name: access_type
+      description: "Способ доступа: SSH key-only, пароль+key"
+      default: "SSH key-only"
+    - name: open_ports
+      description: "Порты которые должны быть открыты"
+      default: "22, 80, 443"
+    - name: focus
+      description: "На что акцент: SSH, firewall, monitoring, backup, всё"
+      default: "всё"
+
+output_contract:
+  format: markdown
+  must_include:
+    - checklist          # пронумерованный чек-лист
+    - config_snippets    # готовые конфиги SSH/UFW/fail2ban
+    - verification_cmds  # команды для проверки каждого пункта
+    - priority_order     # что делать в первую очередь
+  prefer:
+    - provide exact commands (not just descriptions)
+    - note what breaks if misconfigured
+    - include monitoring/alerting setup
+
+prompt_template: |
+  {common_style}
+  {common_safety}
+
+  Ты senior Linux security engineer, специализируешься на hardening Ubuntu VPS.
+
+  ## Задача: hardening чек-лист и конфиги
+
+  **ОС:** {os_version}
+  **Доступ:** {access_type}
+  **Открытые порты:** {open_ports}
+  **Фокус:** {focus}
+
+  ## Что на сервере
+
+  {server_description}
+
+  ## Требования к ответу
+
+  Для каждого пункта hardening:
+  1. Что делаем и зачем (одна строка).
+  2. Точные команды или конфиг-сниппет.
+  3. Команда проверки (как убедиться что применено).
+  4. ⚠️ Что может сломаться если неправильно настроить.
+
+  Порядок: начни с наиболее критичного → менее критичное.
+  В конце — минимальный мониторинг (что логировать и куда смотреть).
+
+quality_checks:
+  - has_checklist: true
+  - has_config_snippets: true
+  - has_verification_cmds: true
+  - covers_ssh: true
+  - covers_firewall: true
+  - covers_fail2ban: true
+
+known_failures:
+  - "Модель не учитывает конкретные сервисы → передавать server_description подробно"
+  - "Модель предлагает отключить root login без backup access → проверить access_type"

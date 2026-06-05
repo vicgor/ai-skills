@@ -1,0 +1,103 @@
+id: db-sql.query-optimize
+version: "1.0.0"
+owner: victor
+status: stable
+tags: [sql, mysql, mariadb, performance, explain, index]
+
+intent: >
+  Анализ и оптимизация медленного SQL-запроса: EXPLAIN, индексы,
+  переписывание JOIN/subquery, рекомендации по схеме.
+
+use_when:
+  - Запрос работает медленно или вызывает full scan
+  - Нужно проверить план запроса через EXPLAIN
+  - Нужно подобрать индексы
+  - Нужно переписать subquery на JOIN или наоборот
+
+avoid_when:
+  - Нет текста запроса
+  - Нужна только документация схемы (используй schema-review)
+
+inputs:
+  required:
+    - name: query
+      description: "SQL-запрос для оптимизации"
+  optional:
+    - name: explain_output
+      description: "Вывод EXPLAIN или EXPLAIN ANALYZE"
+    - name: schema
+      description: "DDL таблиц, участвующих в запросе (CREATE TABLE)"
+    - name: engine
+      description: "БД: mysql, mariadb, postgresql"
+      default: "mariadb"
+    - name: table_sizes
+      description: "Примерные размеры таблиц (строк)"
+    - name: goal
+      description: "Цель: ускорить, снизить нагрузку, убрать lock wait и т.п."
+      default: "ускорить запрос"
+
+output_contract:
+  format: markdown
+  must_include:
+    - diagnosis          # что именно медленно и почему
+    - explain_analysis   # разбор EXPLAIN если передан
+    - index_suggestions  # какие индексы добавить/убрать
+    - rewritten_query    # оптимизированный вариант
+    - risks              # возможные последствия изменений
+    - verification       # как проверить улучшение
+  prefer:
+    - show before/after query
+    - provide exact CREATE INDEX statements
+    - note lock implications for ALTER TABLE
+
+prompt_template: |
+  {common_style}
+  {common_safety}
+
+  Ты senior DBA, специализируешься на {engine} в OLTP-нагрузке.
+
+  ## Задача: оптимизация SQL-запроса
+
+  **БД:** {engine}
+  **Цель:** {goal}
+  **Размеры таблиц:** {table_sizes}
+
+  ## Запрос
+
+  ```sql
+  {query}
+  ```
+
+  ## EXPLAIN (если есть)
+
+  ```
+  {explain_output}
+  ```
+
+  ## Схема (DDL)
+
+  ```sql
+  {schema}
+  ```
+
+  ## Требования к ответу
+
+  1. Диагностика: что именно медленно (full scan, filesort, tmp table и т.п.).
+  2. Разбор EXPLAIN если передан.
+  3. Точные CREATE INDEX / DROP INDEX команды с обоснованием.
+  4. Переписанный вариант запроса (если нужно) — покажи before/after.
+  5. Риски: влияние новых индексов на INSERT/UPDATE, lock при ALTER.
+  6. Как проверить улучшение: EXPLAIN после изменений + бенчмарк.
+  7. Если данных недостаточно — перечисли что нужно уточнить.
+
+quality_checks:
+  - has_diagnosis: true
+  - has_index_suggestions: true
+  - has_rewritten_or_original_with_notes: true
+  - has_risks: true
+  - has_verification_steps: true
+
+known_failures:
+  - "Модель предлагает индекс без учёта write-нагрузки → уточнить table_sizes и write ratio"
+  - "Модель не учитывает версию MariaDB → передать engine с версией (mariadb 10.11)"
+  - "Модель предлагает FORCE INDEX → это антипаттерн, попросить обоснование"

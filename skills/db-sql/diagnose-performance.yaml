@@ -1,0 +1,92 @@
+id: db-sql.diagnose-performance
+version: "1.0.0"
+owner: victor
+status: stable
+tags: [sql, mysql, mariadb, performance, slow-query, processlist, monitoring]
+
+intent: >
+  Диагностика проблем производительности БД по симптомам: slow query log,
+  SHOW PROCESSLIST, метрики, описание проблемы.
+
+use_when:
+  - БД тормозит, но неясно почему
+  - Есть slow query log или PROCESSLIST вывод
+  - Нужен план диагностики с конкретными командами
+  - Нужно разобраться с lock wait / deadlock
+
+avoid_when:
+  - Есть конкретный медленный запрос (используй query-optimize)
+
+inputs:
+  required:
+    - name: symptoms
+      description: "Описание проблемы: что происходит, когда началось"
+  optional:
+    - name: slow_query_log
+      description: "Фрагмент slow query log"
+    - name: processlist
+      description: "Вывод SHOW FULL PROCESSLIST или performance_schema"
+    - name: engine
+      description: "БД: mysql, mariadb, postgresql"
+      default: "mariadb"
+    - name: environment
+      description: "Окружение: prod/staging, версия, железо"
+      default: "production MariaDB"
+    - name: metrics
+      description: "Метрики если есть: CPU, IOPS, connections, QPS"
+
+output_contract:
+  format: markdown
+  must_include:
+    - probable_causes    # 2-3 версии от наиболее вероятной
+    - diagnostic_steps   # пронумерованный план с командами
+    - quick_fixes        # что можно сделать сразу
+    - monitoring_queries # SQL для мониторинга проблемы
+  prefer:
+    - provide exact SQL/shell commands for each step
+    - estimate time for each diagnostic step
+
+prompt_template: |
+  {common_style}
+  {common_safety}
+
+  Ты senior DBA, специализируешься на диагностике {engine}.
+
+  ## Задача: диагностика проблем производительности БД
+
+  **БД / окружение:** {environment}
+  **Метрики:** {metrics}
+
+  ## Симптомы
+
+  {symptoms}
+
+  ## Slow Query Log (если есть)
+
+  ```
+  {slow_query_log}
+  ```
+
+  ## SHOW PROCESSLIST (если есть)
+
+  ```
+  {processlist}
+  ```
+
+  ## Требования к ответу
+
+  1. Вероятные причины (от наиболее к менее вероятной) — 2-3 версии.
+  2. Пошаговый план диагностики с точными SQL/shell командами.
+  3. Быстрые меры: что можно сделать прямо сейчас без риска.
+  4. SQL-запросы для мониторинга: следить за состоянием во время диагностики.
+  5. Если данных недостаточно — список уточняющих вопросов.
+
+quality_checks:
+  - has_probable_causes: true
+  - has_diagnostic_steps_with_commands: true
+  - has_quick_fixes: true
+  - has_monitoring_queries: true
+
+known_failures:
+  - "Модель даёт общие советы без конкретных команд → требовать точные SQL"
+  - "Модель не учитывает версию MariaDB → указывать в environment"

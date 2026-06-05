@@ -1,0 +1,94 @@
+id: devops.write-dockerfile
+version: "1.0.0"
+owner: victor
+status: stable
+tags: [devops, docker, dockerfile, python, security, optimization]
+
+intent: >
+  Написание production-ready Dockerfile для Python-приложения:
+  минимальный образ, multi-stage build, безопасность, кэширование слоёв.
+
+use_when:
+  - Нужен новый Dockerfile для Python-сервиса или CLI
+  - Нужно оптимизировать существующий Dockerfile
+  - Нужен multi-stage build
+
+avoid_when:
+  - Нет описания приложения
+
+inputs:
+  required:
+    - name: app_description
+      description: "Что за приложение: тип (CLI/API/worker), зависимости, точка входа"
+  optional:
+    - name: python_version
+      description: "Версия Python"
+      default: "3.12"
+    - name: base_image
+      description: "Базовый образ: python:slim, python:alpine, uv"
+      default: "python:3.12-slim"
+    - name: package_manager
+      description: "Менеджер пакетов: pip, uv, poetry"
+      default: "uv"
+    - name: existing_dockerfile
+      description: "Текущий Dockerfile если нужна оптимизация"
+    - name: requirements
+      description: "Особые требования: non-root user, healthcheck, secrets handling"
+      default: "non-root user, минимальный образ"
+
+output_contract:
+  format: markdown
+  must_include:
+    - dockerfile         # готовый Dockerfile
+    - build_commands     # команды для сборки и запуска
+    - security_notes     # что сделано для безопасности
+    - optimization_notes # как оптимизированы слои и размер
+  prefer:
+    - multi-stage build
+    - non-root user
+    - .dockerignore snippet
+    - layer caching explanation
+
+prompt_template: |
+  {common_style}
+  {common_safety}
+
+  Ты senior DevOps engineer, специализируешься на контейнеризации Python-приложений.
+
+  ## Задача: написать production-ready Dockerfile
+
+  **Python:** {python_version}
+  **Базовый образ:** {base_image}
+  **Менеджер пакетов:** {package_manager}
+  **Требования:** {requirements}
+
+  ## Приложение
+
+  {app_description}
+
+  ## Существующий Dockerfile (если есть)
+
+  ```dockerfile
+  {existing_dockerfile}
+  ```
+
+  ## Требования к ответу
+
+  1. Готовый Dockerfile с комментариями к ключевым решениям.
+  2. .dockerignore (минимальный, но правильный).
+  3. Команды: docker build + docker run с примером.
+  4. Что сделано для безопасности: non-root, минимальные права, secrets.
+  5. Как оптимизированы слои: порядок COPY/RUN для кэширования.
+  6. Если multi-stage — объясни разделение builder/runtime.
+
+quality_checks:
+  - has_dockerfile: true
+  - has_build_commands: true
+  - uses_non_root_user: true
+  - has_dockerignore: true
+  - has_layer_caching_consideration: true
+
+known_failures:
+  - "Модель использует python:latest → требовать конкретную версию"
+  - "Модель запускает от root → уточнить requirements явно"
+  - "Модель не добавляет .dockerignore → попросить отдельно"

@@ -1,0 +1,85 @@
+id: db-sql.schema-review
+version: "1.0.0"
+owner: victor
+status: stable
+tags: [sql, mysql, mariadb, schema, ddl, normalization, migration]
+
+intent: >
+  Ревью DDL-схемы: нормализация, типы данных, индексы, внешние ключи,
+  именование, потенциальные проблемы производительности.
+
+use_when:
+  - Нужно проверить новую схему перед созданием
+  - Нужно ревью существующих таблиц перед миграцией
+  - Нужно найти проблемы с типами данных или индексами
+
+avoid_when:
+  - Нет DDL — используй query-optimize
+
+inputs:
+  required:
+    - name: schema
+      description: "DDL таблиц (CREATE TABLE)"
+  optional:
+    - name: engine
+      description: "БД: mysql, mariadb, postgresql"
+      default: "mariadb"
+    - name: context
+      description: "Назначение схемы, тип нагрузки (OLTP/OLAP/mixed)"
+      default: "OLTP"
+    - name: focus
+      description: "На что обратить особое внимание: типы, индексы, нормализация, безопасность"
+      default: "всё"
+
+output_contract:
+  format: markdown
+  must_include:
+    - issues_list        # конкретные проблемы с примерами
+    - improvements       # исправленные DDL-фрагменты
+    - priority_list      # что исправить в первую очередь
+  prefer:
+    - show corrected DDL snippets
+    - explain WHY each issue matters
+    - note migration complexity
+
+prompt_template: |
+  {common_style}
+  {common_safety}
+
+  Ты senior DBA, специализируешься на проектировании схем {engine}.
+
+  ## Задача: ревью DDL-схемы
+
+  **БД:** {engine}
+  **Контекст / нагрузка:** {context}
+  **Фокус проверки:** {focus}
+
+  ## Схема
+
+  ```sql
+  {schema}
+  ```
+
+  ## Что проверить
+
+  1. **Типы данных**: правильный выбор (INT vs BIGINT, VARCHAR длина, DATETIME vs TIMESTAMP).
+  2. **Первичные ключи**: суррогатный vs натуральный, AUTO_INCREMENT vs UUID.
+  3. **Индексы**: покрывающие, составные, лишние или отсутствующие.
+  4. **Внешние ключи**: есть ли, правильные ли CASCADE-правила.
+  5. **Нормализация**: дублирование данных, нарушения 2NF/3NF.
+  6. **Именование**: консистентность таблиц, колонок, индексов.
+  7. **Производительность**: потенциальные проблемы при росте данных.
+
+  Для каждой проблемы: что сейчас → что предлагаю (DDL-фрагмент).
+  В конце — приоритизированный список: что исправить сначала.
+
+quality_checks:
+  - has_issues_list: true
+  - has_ddl_fixes: true
+  - has_priority_list: true
+  - covers_indexes: true
+  - covers_data_types: true
+
+known_failures:
+  - "Модель игнорирует storage engine (InnoDB vs MyISAM) → передавать явно"
+  - "Модель предлагает UUID как PK без учёта производительности → уточнить write-нагрузку"
