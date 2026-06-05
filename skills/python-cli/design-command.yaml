@@ -1,0 +1,81 @@
+id: python-cli.design-command
+version: "1.0.0"
+owner: victor
+status: stable
+tags: [python, cli, typer, click, argparse, design, architecture]
+
+intent: >
+  Проектирование новой CLI-команды с нуля: сигнатура, аргументы,
+  структура модулей, UX-рекомендации.
+
+use_when:
+  - Нужно создать новую команду, которой ещё нет
+  - Нужно спроектировать группу подкоманд
+  - Нужно выбрать подход к структуре проекта перед написанием кода
+
+avoid_when:
+  - Команда уже существует (используй refactor-command)
+  - Нужно только написать help text (используй generate-help-text)
+
+inputs:
+  required:
+    - name: goal
+      description: "Что должна делать команда (1–3 предложения)"
+    - name: context
+      description: "Контекст: что за проект, какие уже есть команды, стек"
+  optional:
+    - name: framework
+      description: "Фреймворк: typer, click, argparse"
+      default: "typer"
+    - name: python_version
+      description: "Версия Python"
+      default: "3.12"
+    - name: constraints
+      description: "Ограничения: совместимость, стиль, зависимости"
+      default: "нет"
+    - name: subcommands
+      description: "Нужны ли подкоманды и какие"
+      default: "не определено"
+
+output_contract:
+  format: markdown
+  must_include:
+    - command_signature       # имя, аргументы, опции с типами
+    - module_structure        # файлы и их назначение
+    - usage_examples          # 3–5 примеров вызова
+    - ux_recommendations      # поведение ошибок, progress, output
+    - open_questions          # что нужно уточнить перед реализацией
+
+prompt_template: |
+  {common_style}
+  {common_safety}
+
+  Ты senior Python engineer, специализируешься на CLI UX и архитектуре.
+
+  ## Задача: спроектировать новую CLI-команду
+
+  **Фреймворк:** {framework}
+  **Python:** {python_version}
+  **Цель команды:** {goal}
+  **Контекст проекта:** {context}
+  **Подкоманды:** {subcommands}
+  **Ограничения:** {constraints}
+
+  ## Требования к ответу
+
+  1. Предложи сигнатуру команды: имя, positional args, options с типами и defaults.
+  2. Покажи структуру модулей (файлы, что где живёт).
+  3. Дай 3–5 примеров вызова с реальными данными.
+  4. Рекомендации по UX: обработка ошибок, --dry-run, --verbose, output format.
+  5. Список открытых вопросов, которые нужно решить до реализации.
+
+quality_checks:
+  - has_command_signature: true
+  - has_module_structure: true
+  - has_usage_examples: true
+  - has_ux_recommendations: true
+  - mentions_error_handling: true
+
+known_failures:
+  - "Модель не предлагает --dry-run для деструктивных операций → добавить в prompt явно"
+  - "Модель игнорирует существующий контекст → передавать context подробнее"

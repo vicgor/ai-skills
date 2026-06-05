@@ -1,0 +1,81 @@
+id: python-cli.generate-help-text
+version: "1.0.0"
+owner: victor
+status: stable
+tags: [python, cli, help, documentation, typer, click]
+
+intent: >
+  Генерация качественного help text, usage примеров и epilog для CLI-команды.
+
+use_when:
+  - Нужно написать help text с нуля
+  - Нужно улучшить существующий help text
+  - Нужны usage examples для документации
+
+avoid_when:
+  - Нет описания команды или её кода
+
+inputs:
+  required:
+    - name: command_description
+      description: "Что делает команда, её аргументы и опции"
+  optional:
+    - name: framework
+      description: "Фреймворк: typer, click, argparse"
+      default: "typer"
+    - name: existing_code
+      description: "Существующий код команды если есть"
+    - name: style
+      description: "Стиль: краткий (одна строка) или развёрнутый (с примерами)"
+      default: "развёрнутый"
+    - name: target_audience
+      description: "Для кого: разработчики, ops, конечные пользователи"
+      default: "разработчики / ops"
+
+output_contract:
+  format: markdown
+  must_include:
+    - short_description      # 1 строка, вставить как docstring/help=
+    - long_description       # 2–5 строк если нужно
+    - usage_examples         # 3–5 реальных примеров с данными
+    - notes                  # важные особенности поведения
+    - ready_code_snippet     # готовый фрагмент для вставки в команду
+
+prompt_template: |
+  {common_style}
+  {common_safety}
+
+  Ты технический писатель и Python CLI expert.
+
+  ## Задача: написать help text для CLI-команды
+
+  **Фреймворк:** {framework}
+  **Стиль:** {style}
+  **Целевая аудитория:** {target_audience}
+
+  ## Описание команды
+
+  {command_description}
+
+  ## Существующий код (если есть)
+
+  ```python
+  {existing_code}
+  ```
+
+  ## Требования к результату
+
+  1. Короткое описание (1 строка, ≤80 символов) — для help= параметра.
+  2. Длинное описание (если style=развёрнутый) — 2–5 строк.
+  3. Примеры использования с реальными данными (3–5 штук).
+  4. Заметки: важные особенности поведения, ограничения, exit codes.
+  5. Готовый фрагмент кода для вставки в команду.
+
+quality_checks:
+  - has_short_description: true
+  - has_usage_examples: true
+  - short_description_under_80_chars: true
+  - has_code_snippet: true
+
+known_failures:
+  - "Примеры с фиктивными данными типа 'my-value' → указывать target_audience чётче"

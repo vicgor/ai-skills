@@ -1,0 +1,87 @@
+id: python-cli.fix-bug-from-trace
+version: "1.0.0"
+owner: victor
+status: stable
+tags: [python, cli, debug, traceback, error, fix]
+
+intent: >
+  Диагностика ошибки по traceback, логу или описанию неожиданного поведения.
+  Предлагает root cause, гипотезы и конкретный фикс.
+
+use_when:
+  - Есть traceback или лог с ошибкой
+  - Команда ведёт себя не так, как ожидается
+  - Нужно понять причину перед тем, как исправлять
+
+avoid_when:
+  - Нет никакой информации об ошибке (используй design-command или review-cli-ux)
+
+inputs:
+  required:
+    - name: traceback
+      description: "Traceback, лог или описание ошибки"
+  optional:
+    - name: current_code
+      description: "Код, где предположительно возникает ошибка"
+    - name: command_call
+      description: "Как именно вызывалась команда"
+    - name: environment
+      description: "Python, ОС, версии пакетов"
+      default: "Python 3.12, Ubuntu"
+    - name: expected_behavior
+      description: "Что должно было произойти"
+
+output_contract:
+  format: markdown
+  must_include:
+    - root_cause             # одна фраза
+    - hypotheses             # 2–3 версии причины
+    - fix                    # код или команды
+    - verification_checklist # как проверить что починили
+  prefer:
+    - minimal fix, not a rewrite
+    - explain why the error happens
+
+prompt_template: |
+  {common_style}
+  {common_safety}
+
+  Ты senior Python engineer, специализируешься на отладке CLI-приложений.
+
+  ## Задача: диагностика ошибки
+
+  **Окружение:** {environment}
+  **Вызов команды:** {command_call}
+  **Ожидаемое поведение:** {expected_behavior}
+
+  ## Ошибка / Traceback
+
+  ```
+  {traceback}
+  ```
+
+  ## Код (если есть)
+
+  ```python
+  {current_code}
+  ```
+
+  ## Требования к ответу
+
+  1. Одной фразой: root cause.
+  2. Перечисли 2–3 гипотезы (от наиболее вероятной к менее).
+  3. Для каждой гипотезы — как её проверить (команда или лог).
+  4. Предложи минимальный фикс.
+  5. Чеклист: как убедиться, что баг исправлен.
+  6. Если данных недостаточно — спроси что именно нужно.
+
+quality_checks:
+  - has_root_cause: true
+  - has_hypotheses: true
+  - has_fix: true
+  - has_verification: true
+  - minimal_fix_not_rewrite: true
+
+known_failures:
+  - "Модель предлагает полную перепись вместо точечного фикса → усилить constraint"
+  - "Модель не объясняет почему ошибка происходит → добавить требование объяснить механизм"

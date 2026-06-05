@@ -1,0 +1,50 @@
+# Каталог всех скиллов
+# Обновляй при добавлении/изменении скилла.
+
+version: "1.0"
+
+domains:
+  python-cli:
+    description: "Python CLI-приложения (Typer, Click, Argparse)"
+    skills:
+      - id: python-cli.refactor-command
+        file: skills/python-cli/refactor-command.yaml
+        status: stable
+        intent: "Рефакторинг существующей CLI-команды"
+        inputs_required: [current_code, goal]
+        output: "diff/код + план + риски"
+
+      - id: python-cli.design-command
+        file: skills/python-cli/design-command.yaml
+        status: stable
+        intent: "Проектирование новой CLI-команды с нуля"
+        inputs_required: [goal, context]
+        output: "сигнатура + options + структура + UX-рекомендации"
+
+      - id: python-cli.fix-bug-from-trace
+        file: skills/python-cli/fix-bug-from-trace.yaml
+        status: stable
+        intent: "Диагностика ошибки по traceback или логу"
+        inputs_required: [traceback]
+        output: "root cause + гипотезы + фикс + проверки"
+
+      - id: python-cli.write-tests
+        file: skills/python-cli/write-tests.yaml
+        status: stable
+        intent: "Написание pytest-тестов для CLI-команды"
+        inputs_required: [current_code]
+        output: "тест-кейсы + фикстуры + edge cases"
+
+      - id: python-cli.review-cli-ux
+        file: skills/python-cli/review-cli-ux.yaml
+        status: stable
+        intent: "Ревью CLI UX: help, flags, errors, output"
+        inputs_required: [current_code_or_help_output]
+        output: "список проблем + улучшения"
+
+      - id: python-cli.generate-help-text
+        file: skills/python-cli/generate-help-text.yaml
+        status: stable
+        intent: "Генерация help text, usage, epilog"
+        inputs_required: [command_description]
+        output: "help text + usage examples + epilog"

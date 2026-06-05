@@ -1,0 +1,85 @@
+id: python-cli.review-cli-ux
+version: "1.0.0"
+owner: victor
+status: stable
+tags: [python, cli, ux, review, help, error-messages]
+
+intent: >
+  Ревью CLI UX: качество help text, именование команд/флагов,
+  обработка ошибок, форматирование вывода.
+
+use_when:
+  - Нужна ревизия help и usage команды
+  - Нужно привести именование флагов к стандарту
+  - Нужно улучшить error messages
+  - Нужен аудит output и форматирования
+
+avoid_when:
+  - Нет ни кода, ни help output
+
+inputs:
+  required:
+    - name: current_code_or_help_output
+      description: "Код команды или вывод `command --help`"
+  optional:
+    - name: framework
+      description: "Фреймворк: typer, click, argparse"
+      default: "typer"
+    - name: target_audience
+      description: "Кто будет пользователем: разработчики, ops, конечные пользователи"
+      default: "разработчики / ops"
+    - name: focus
+      description: "На что обратить особое внимание"
+      default: "всё"
+
+output_contract:
+  format: markdown
+  must_include:
+    - issues_list            # конкретные проблемы с примерами
+    - improvements           # исправленные варианты
+    - priority_list          # что исправить в первую очередь
+  prefer:
+    - show before/after for each issue
+    - follow POSIX/GNU conventions
+    - concise help text (<80 chars per line)
+
+prompt_template: |
+  {common_style}
+  {common_safety}
+
+  Ты senior CLI UX reviewer. Оцениваешь качество CLI с точки зрения
+  POSIX/GNU-конвенций, удобства использования и читаемости.
+
+  ## Задача: CLI UX review
+
+  **Фреймворк:** {framework}
+  **Целевая аудитория:** {target_audience}
+  **Фокус проверки:** {focus}
+
+  ## Код / help output
+
+  ```
+  {current_code_or_help_output}
+  ```
+
+  ## Что проверить
+
+  1. **Help text**: понятность, полнота, длина строк (<80 символов).
+  2. **Именование**: команды (kebab-case), флаги (--long-form vs -s), позиционные аргументы.
+  3. **Defaults**: разумные ли, задокументированы ли.
+  4. **Обработка ошибок**: понятны ли сообщения, есть ли exit codes.
+  5. **Output**: человекочитаемый vs machine-readable, --json флаг при необходимости.
+  6. **Безопасность**: --dry-run для деструктивных операций, подтверждение для --force.
+
+  Для каждой проблемы покажи: что сейчас → что предлагаю (before/after).
+  В конце — приоритизированный список что исправить в первую очередь.
+
+quality_checks:
+  - has_issues_list: true
+  - has_before_after_examples: true
+  - has_priority_list: true
+  - covers_error_messages: true
+  - covers_help_text: true
+
+known_failures:
+  - "Модель даёт общие советы без конкретных примеров → усилить требование before/after"

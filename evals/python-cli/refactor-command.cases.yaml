@@ -1,0 +1,81 @@
+skill_id: python-cli.refactor-command
+description: "Тест-кейсы для проверки скилла refactor-command"
+
+cases:
+  - id: typer_extract_service_layer
+    description: "Выделить service слой из typer-команды"
+    input:
+      framework: typer
+      goal: "вынести бизнес-логику из CLI-команды в отдельный service слой"
+      constraints: "не менять публичный CLI-интерфейс, Python 3.12"
+      target_structure: "cli.py + services/user_sync.py"
+      test_context: "тестов нет, нужно чтобы service легко тестировался без CLI"
+      current_code: "<см. examples/python-cli/typer-small-app.md>"
+    expected:
+      must_contain:
+        - "план рефакторинга"
+        - "service"
+        - "pytest"
+        - "не менять"
+      should_not_contain:
+        - "FastAPI"
+        - "полная перепись"
+        - "переписать всё"
+      quality:
+        has_diagnosis: true
+        has_plan: true
+        has_code_or_diff: true
+        mentions_tests: true
+
+  - id: argparse_error_handling
+    description: "Улучшить обработку ошибок в argparse-команде"
+    input:
+      framework: argparse
+      goal: "улучшить обработку ошибок и добавить понятные error messages"
+      constraints: "Python 3.10, не менять аргументы"
+      target_structure: "single file acceptable"
+      test_context: "тестов нет"
+      current_code: |
+        import argparse
+        import sys
+
+        def main():
+            parser = argparse.ArgumentParser()
+            parser.add_argument('input')
+            parser.add_argument('--output', default='out.txt')
+            args = parser.parse_args()
+
+            with open(args.input) as f:
+                data = f.read()
+
+            with open(args.output, 'w') as f:
+                f.write(data.upper())
+
+        if __name__ == '__main__':
+            main()
+    expected:
+      must_contain:
+        - "обработка ошибок"
+        - "exit"
+      should_not_contain:
+        - "typer"
+        - "click"
+      quality:
+        has_diagnosis: true
+        has_code_or_diff: true
+
+  - id: no_code_provided
+    description: "Что происходит если current_code не передан"
+    input:
+      framework: typer
+      goal: "рефакторинг"
+      constraints: ""
+      target_structure: ""
+      test_context: ""
+      current_code: ""
+    expected:
+      must_contain:
+        - "недостаточно"
+      behavior: "ask_for_missing_data"
+      quality:
+        asks_for_missing_input: true

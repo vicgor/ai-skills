@@ -1,0 +1,84 @@
+id: python-cli.write-tests
+version: "1.0.0"
+owner: victor
+status: stable
+tags: [python, cli, pytest, testing, typer, click]
+
+intent: >
+  Генерация pytest-тестов для CLI-команды: unit тесты для сервис-слоя,
+  integration тесты через CliRunner, edge cases и фикстуры.
+
+use_when:
+  - Нужно написать тесты для существующей команды
+  - Нужны фикстуры для изоляции внешних зависимостей
+  - Нужны property-based или edge-case сценарии
+
+avoid_when:
+  - Код ещё не написан (сначала используй design-command)
+
+inputs:
+  required:
+    - name: current_code
+      description: "Код команды или сервис-слоя для тестирования"
+  optional:
+    - name: framework
+      description: "Фреймворк: typer, click, argparse"
+      default: "typer"
+    - name: focus
+      description: "На что сделать акцент: unit, integration, edge cases, error handling"
+      default: "unit + integration + edge cases"
+    - name: existing_fixtures
+      description: "Существующие фикстуры или conftest.py"
+    - name: external_deps
+      description: "Внешние зависимости для мокирования: DB, API, filesystem"
+
+output_contract:
+  format: markdown
+  must_include:
+    - fixtures               # pytest фикстуры
+    - positive_tests         # позитивные сценарии
+    - negative_tests         # ошибки и edge cases
+    - run_command            # как запустить
+  prefer:
+    - use CliRunner for CLI integration tests
+    - mock external dependencies
+    - parametrize where applicable
+
+prompt_template: |
+  {common_style}
+  {common_safety}
+
+  Ты senior Python engineer, специализируешься на тестировании CLI-приложений.
+
+  ## Задача: написать pytest-тесты
+
+  **Фреймворк:** {framework}
+  **Фокус:** {focus}
+  **Внешние зависимости для мока:** {external_deps}
+  **Существующие фикстуры:** {existing_fixtures}
+
+  ## Код для тестирования
+
+  ```python
+  {current_code}
+  ```
+
+  ## Требования к ответу
+
+  1. Фикстуры (conftest.py фрагмент): изолируй внешние зависимости.
+  2. Позитивные сценарии: happy path для каждой команды/функции.
+  3. Негативные / edge cases: пустой ввод, неверный тип, отсутствующий файл.
+  4. Для CLI: используй CliRunner (typer.testing или click.testing).
+  5. Используй pytest.mark.parametrize где применимо.
+  6. В конце: команда для запуска тестов.
+
+quality_checks:
+  - has_fixtures: true
+  - has_positive_tests: true
+  - has_negative_tests: true
+  - uses_cli_runner: true
+  - has_run_command: true
+
+known_failures:
+  - "Модель не изолирует filesystem → явно указывать external_deps"
+  - "Модель не использует parametrize → добавить требование"

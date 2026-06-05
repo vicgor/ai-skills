@@ -1,0 +1,60 @@
+skill_id: python-cli.fix-bug-from-trace
+description: "Тест-кейсы для проверки скилла fix-bug-from-trace"
+
+cases:
+  - id: file_not_found
+    description: "FileNotFoundError при открытии входного файла"
+    input:
+      traceback: |
+        Traceback (most recent call last):
+          File "cli.py", line 23, in sync_users
+            with open(source) as f:
+        FileNotFoundError: [Errno 2] No such file or directory: 'users.json'
+      command_call: "python cli.py sync-users users.json"
+      environment: "Python 3.12, Ubuntu 22.04"
+      expected_behavior: "команда должна читать файл и синхронизировать пользователей"
+    expected:
+      must_contain:
+        - "FileNotFoundError"
+        - "файл"
+        - "проверить"
+      quality:
+        has_root_cause: true
+        has_fix: true
+        has_verification: true
+
+  - id: json_decode_error
+    description: "JSON decode ошибка при чтении файла"
+    input:
+      traceback: |
+        Traceback (most recent call last):
+          File "cli.py", line 25, in sync_users
+            users = json.load(f)
+          File "/usr/lib/python3.12/json/__init__.py", line 293, in load
+            return loads(fp.read(), ...)
+        json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+      command_call: "python cli.py sync-users empty_file.json"
+      environment: "Python 3.12, Ubuntu 22.04"
+      expected_behavior: "команда должна обработать некорректный JSON с понятным сообщением"
+    expected:
+      must_contain:
+        - "JSONDecodeError"
+        - "try"
+      quality:
+        has_root_cause: true
+        has_fix: true
+
+  - id: typer_missing_argument
+    description: "MissingParameter при вызове без обязательного аргумента"
+    input:
+      traceback: |
+        Error: Missing argument 'SOURCE'.
+      command_call: "python cli.py sync-users"
+      environment: "Python 3.12, Typer 0.12"
+      expected_behavior: "должна быть подсказка о том, как вызвать команду"
+    expected:
+      must_contain:
+        - "аргумент"
+      quality:
+        has_root_cause: true
+        has_fix: true

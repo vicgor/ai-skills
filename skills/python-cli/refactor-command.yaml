@@ -1,0 +1,97 @@
+id: python-cli.refactor-command
+version: "1.0.0"
+owner: victor
+status: stable
+tags: [python, cli, typer, click, argparse, refactoring]
+
+intent: >
+  Рефакторинг существующей CLI-команды: улучшение читаемости, структуры,
+  separation of concerns и testability.
+
+use_when:
+  - Команда разрослась и смешивает парсинг аргументов с бизнес-логикой
+  - Нужно выделить application/service слой
+  - Нужно упростить юнит-тестирование без вызова CLI
+  - Сложно поменять реализацию без правки CLI-слоя
+
+avoid_when:
+  - Нет входного кода
+  - Нужен только ответ на вопрос, а не переработка кода
+  - Требуется полная перепись проекта (используй design-command)
+
+inputs:
+  required:
+    - name: current_code
+      description: "Текущий код команды (или модуля целиком)"
+    - name: goal
+      description: "Цель рефакторинга одной фразой"
+  optional:
+    - name: framework
+      description: "Фреймворк: typer, click, argparse"
+      default: "typer"
+    - name: constraints
+      description: "Ограничения: не менять интерфейс, версия Python и т.п."
+      default: "не менять публичный CLI-интерфейс"
+    - name: target_structure
+      description: "Желаемая структура файлов/модулей"
+      default: "не задана"
+    - name: test_context
+      description: "Есть ли существующие тесты, которые нужно сохранить"
+      default: "тестов нет"
+
+output_contract:
+  format: markdown
+  must_include:
+    - short_diagnosis        # 2–3 предложения: что не так сейчас
+    - refactoring_plan       # нумерованный список шагов
+    - updated_code_or_diff   # diff или обновлённый код
+    - risks                  # риски и breaking changes
+    - next_steps             # что сделать после
+  prefer:
+    - minimal diff over full rewrite
+    - keep backward compatibility
+    - brief tradeoff explanation
+
+prompt_template: |
+  {common_style}
+  {common_safety}
+
+  Ты senior Python engineer, специализируешься на CLI-приложениях.
+
+  ## Задача: рефакторинг CLI-команды
+
+  **Фреймворк:** {framework}
+  **Цель:** {goal}
+  **Ограничения:** {constraints}
+  **Желаемая структура:** {target_structure}
+  **Существующие тесты:** {test_context}
+
+  ## Требования к ответу
+
+  1. Кратко диагностируй проблемы текущего кода (2–3 пункта).
+  2. Предложи пошаговый план рефакторинга.
+  3. Покажи результат как unified diff или обновлённый код.
+  4. Не меняй внешнее поведение без явного указания.
+  5. Если данных недостаточно — сначала перечисли вопросы.
+  6. Добавь раздел «Риски» если есть breaking changes.
+  7. В конце — «Следующие шаги» (1–3 пункта).
+
+  ## Текущий код
+
+  ```python
+  {current_code}
+  ```
+
+quality_checks:
+  - has_diagnosis: true
+  - has_plan: true
+  - has_code_or_diff: true
+  - has_risks_section: true
+  - preserves_cli_interface: true
+  - mentions_tests: true
+  - no_unnecessary_full_rewrite: true
+
+known_failures:
+  - "Модель переписывает весь файл вместо minimal diff → добавить в prompt: 'показывай только изменённые части как unified diff'"
+  - "Модель снова смешивает CLI и бизнес-логику → уточнить target_structure явно"
+  - "Модель предлагает FastAPI/другой фреймворк → зафиксировать framework явно"
