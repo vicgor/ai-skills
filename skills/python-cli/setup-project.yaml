@@ -1,0 +1,106 @@
+id: python-cli.setup-project
+version: "1.0.0"
+owner: victor
+status: stable
+tags: [python, cli, uv, pyproject, packaging, linting, mypy, ruff, setup]
+
+intent: >
+  Создание нового Python CLI-проекта с нуля: структура директорий,
+  pyproject.toml с uv, настройка ruff, mypy, pytest и базового CI.
+
+use_when:
+  - Начинается новый CLI-проект и нужна правильная структура
+  - Нужно добавить современный toolchain к существующему проекту
+  - Нужен шаблон pyproject.toml под конкретный стек (uv + typer/click)
+  - Нужна настройка ruff + mypy с нуля
+
+avoid_when:
+  - Проект уже полностью настроен
+  - Нужно только добавить одну зависимость (pip install достаточно)
+  - Проект не на Python
+
+inputs:
+  required:
+    - name: project_name
+      description: "Имя проекта (snake_case, как в PyPI)"
+    - name: goal
+      description: "Что делает проект (1–2 предложения)"
+  optional:
+    - name: framework
+      description: "CLI-фреймворк: typer, click, argparse"
+      default: "typer"
+    - name: python_version
+      description: "Минимальная версия Python"
+      default: "3.12"
+    - name: extras
+      description: "Дополнительные инструменты: rich, pydantic, httpx, sqlalchemy и т.д."
+      default: "нет"
+    - name: publish_to_pypi
+      description: "Планируется ли публикация на PyPI"
+      default: "нет"
+    - name: ci_platform
+      description: "CI-платформа: github-actions, gitlab-ci, none"
+      default: "github-actions"
+
+output_contract:
+  format: markdown
+  must_include:
+    - directory_structure      # дерево директорий с пояснениями
+    - pyproject_toml           # полный pyproject.toml готовый к использованию
+    - uv_commands              # команды инициализации и установки зависимостей
+    - ruff_config              # секция [tool.ruff] с разумными defaults
+    - mypy_config              # секция [tool.mypy] базовая строгость
+    - pytest_config            # секция [tool.pytest.ini_options]
+    - entrypoint_example       # минимальный main.py / __main__.py
+    - ci_snippet               # GitHub Actions workflow или заглушка
+
+prompt_template: |
+  {common_style}
+  {common_safety}
+
+  Ты senior Python engineer, специализируешься на современном Python-тулчейне (uv, ruff, mypy).
+
+  ## Задача: создать структуру нового CLI-проекта
+
+  **Имя проекта:** {project_name}
+  **Цель:** {goal}
+  **CLI-фреймворк:** {framework}
+  **Python:** {python_version}+
+  **Дополнительные зависимости:** {extras}
+  **Публикация на PyPI:** {publish_to_pypi}
+  **CI:** {ci_platform}
+
+  ## Требования к ответу
+
+  1. Покажи структуру директорий с кратким пояснением каждого файла/папки.
+  2. Дай полный `pyproject.toml`:
+     - `[project]` с name, version, description, requires-python, dependencies
+     - `[project.scripts]` с entrypoint
+     - `[tool.uv]` если нужно
+     - `[tool.ruff]` — line-length 100, select включая I, UP, B, SIM; ignore минимально
+     - `[tool.ruff.lint.isort]` — known-first-party
+     - `[tool.mypy]` — strict = true, ignore_missing_imports = true для проблемных пакетов
+     - `[tool.pytest.ini_options]` — testpaths, addopts с --tb=short
+     - `[build-system]` с hatchling или uv build backend
+  3. Команды для инициализации проекта через `uv`:
+     - `uv init`, `uv add`, `uv sync`, `uv run`
+  4. Минимальный `src/{project_name}/__init__.py` и `src/{project_name}/main.py`
+     с базовой Typer/Click-командой и правильным entrypoint.
+  5. Сниппет GitHub Actions (или заглушка) для lint + test при push.
+  6. Отметь, что нужно сделать вручную после запуска команд (git init, .gitignore и т.д.).
+
+quality_checks:
+  - has_directory_structure: true
+  - has_pyproject_toml: true
+  - has_uv_commands: true
+  - has_ruff_config: true
+  - has_mypy_config: true
+  - has_entrypoint_example: true
+  - pyproject_has_build_system: true
+  - uses_src_layout: true
+
+known_failures:
+  - "Модель генерирует flat layout вместо src/ → явно указано uses_src_layout"
+  - "Модель пропускает [build-system] → добавлено в чеклист"
+  - "mypy strict ломает проекты с неаннотированными сторонними пакетами → добавить ignore_missing_imports"
+  - "Модель использует pip вместо uv → явно указан uv во всех командах"
