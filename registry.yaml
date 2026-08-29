@@ -1,7 +1,7 @@
 # Каталог всех скиллов
 # Обновляй при добавлении/изменении скилла.
 
-version: "1.1"
+version: "1.2"
 
 domains:
   python-cli:
@@ -48,6 +48,13 @@ domains:
         intent: "Генерация help text, usage, epilog"
         inputs_required: [command_description]
         output: "help text + usage examples + epilog"
+
+      - id: python-cli.setup-project
+        file: skills/python-cli/setup-project.yaml
+        status: stable
+        intent: "Создание нового Python CLI-проекта с нуля: uv, pyproject.toml, ruff, mypy, pytest, CI"
+        inputs_required: [project_name, goal]
+        output: "структура директорий + pyproject.toml + uv команды + entrypoint + CI-сниппет"
 
   db-sql:
     description: "SQL-запросы, схемы, миграции, диагностика (MariaDB/MySQL/PostgreSQL)"
