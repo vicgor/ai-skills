@@ -1,11 +1,11 @@
 # Каталог всех скиллов
 # Обновляй при добавлении/изменении скилла.
 
-version: "1.2"
+version: "1.3"
 
 domains:
   python-cli:
-    description: "Python CLI-приложения (Typer, Click, Argparse)"
+    description: "Python CLI-приложения (Typer, Click, Argparse, Textual, Rich)"
     skills:
       - id: python-cli.refactor-command
         file: skills/python-cli/refactor-command.yaml
@@ -55,6 +55,13 @@ domains:
         intent: "Создание нового Python CLI-проекта с нуля: uv, pyproject.toml, ruff, mypy, pytest, CI"
         inputs_required: [project_name, goal]
         output: "структура директорий + pyproject.toml + uv команды + entrypoint + CI-сниппет"
+
+      - id: python-cli.add-tui-component
+        file: skills/python-cli/add-tui-component.yaml
+        status: stable
+        intent: "Добавление TUI-компонента (Textual/Rich): виджет, экран, таблица, прогресс, меню"
+        inputs_required: [component_goal, current_code]
+        output: "обоснование библиотеки + код компонента + интеграция + пример"
 
   db-sql:
     description: "SQL-запросы, схемы, миграции, диагностика (MariaDB/MySQL/PostgreSQL)"

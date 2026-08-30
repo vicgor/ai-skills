@@ -1,0 +1,120 @@
+id: python-cli.add-tui-component
+version: "1.0.0"
+owner: victor
+status: stable
+tags: [python, cli, tui, textual, rich, ui, components, layout]
+
+intent: >
+  Добавление TUI-компонента (Textual или Rich) к существующему CLI-приложению:
+  проектирование, реализация виджета/экрана, интеграция с логикой команды.
+
+use_when:
+  - Нужно добавить интерактивный экран, таблицу, прогресс-бар, меню или форму в CLI
+  - Нужно заменить простой print-вывод на форматированный Rich-вывод
+  - Нужно выбрать между Textual и Rich для конкретной задачи
+  - Нужно написать кастомный Textual-виджет
+  - Нужно реализовать reactive-переменные и обновление UI в реальном времени
+
+avoid_when:
+  - Нужен только --help или usage (используй generate-help-text)
+  - Приложение не терминальное (веб / GUI)
+  - Уже есть полный TUI-фреймворк и нужна только бизнес-логика
+
+inputs:
+  required:
+    - name: component_goal
+      description: "Что должен делать компонент (1–2 предложения)"
+    - name: current_code
+      description: "Текущий код команды или модуля, куда интегрируется компонент"
+  optional:
+    - name: library
+      description: "Предпочтительная библиотека: textual, rich, или auto (выбрать автоматически)"
+      default: "auto"
+    - name: component_type
+      description: "Тип компонента: table, form, progress, tree, log, menu, dashboard, custom"
+      default: "не задан"
+    - name: python_version
+      description: "Версия Python"
+      default: "3.12"
+    - name: existing_tui
+      description: "Уже используется Textual/Rich в проекте? Версия?"
+      default: "нет"
+    - name: async_context
+      description: "Приложение использует asyncio?"
+      default: "нет"
+
+output_contract:
+  format: markdown
+  must_include:
+    - library_choice_rationale   # почему Textual vs Rich для данной задачи
+    - component_code             # полный код виджета / экрана / функции вывода
+    - integration_snippet        # как подключить к существующей команде
+    - keybindings_and_events     # если Textual: какие action/key/message нужны
+    - install_command            # uv add / pip install с версией
+    - usage_example              # пример вызова / скриншот-схема (ASCII)
+  prefer:
+    - Textual для интерактивного ввода, навигации, реактивных обновлений
+    - Rich для красивого вывода без интерактивности (таблицы, progress, syntax)
+    - избегать блокирующего кода в Textual async context
+
+prompt_template: |
+  {common_style}
+  {common_safety}
+
+  Ты senior Python engineer, специализируешься на TUI-разработке с Textual и Rich.
+
+  ## Задача: добавить TUI-компонент к CLI-приложению
+
+  **Цель компонента:** {component_goal}
+  **Предпочтительная библиотека:** {library}
+  **Тип компонента:** {component_type}
+  **Python:** {python_version}+
+  **Уже используется TUI:** {existing_tui}
+  **asyncio:** {async_context}
+
+  ## Текущий код
+
+  ```python
+  {current_code}
+  ```
+
+  ## Требования к ответу
+
+  1. **Выбор библиотеки**: обоснуй выбор Textual vs Rich для данной задачи (1–2 предложения).
+     - Textual: интерактивный ввод, навигация клавишами, реактивные данные, multi-screen
+     - Rich: статичный красивый вывод, таблицы, прогресс, syntax highlighting, лог
+
+  2. **Код компонента**:
+     - Для Textual: полный класс Widget или Screen с методами compose(), on_*(), action_*()
+     - Для Rich: функцию или класс с использованием Console, Table, Progress, Live и т.д.
+     - Типизация: все методы с аннотациями типов
+     - Reactive-переменные (Textual) с правильными типами и watch_*()
+
+  3. **Интеграция**: покажи, как изменить существующую команду для подключения компонента.
+     Минимальный diff, без переписывания несвязанной логики.
+
+  4. **Keybindings и события** (если Textual):
+     - BINDINGS с описанием
+     - Обработчики on_key, on_button_pressed или кастомные Message-классы
+
+  5. **Установка**: команда `uv add textual` или `uv add rich` с актуальной версией.
+
+  6. **Пример использования**: короткий ASCII-схему того, как выглядит результат в терминале.
+
+  7. Если `library=auto` — явно укажи, что выбрал и почему.
+
+quality_checks:
+  - has_library_choice_rationale: true
+  - has_component_code: true
+  - has_integration_snippet: true
+  - has_install_command: true
+  - has_usage_example: true
+  - code_is_typed: true
+  - no_blocking_in_async: true
+
+known_failures:
+  - "Модель использует блокирующий input() внутри Textual async → добавить явный запрет в prompt"
+  - "Модель генерирует Rich для задачи, где нужна интерактивность → уточнить component_type"
+  - "Модель не добавляет BINDINGS → включено в обязательные требования"
+  - "Модель использует устаревший API Textual (on_mount вместо compose) → уточнить версию в existing_tui"
+  - "Модель не показывает интеграцию, только изолированный компонент → integration_snippet в must_include"
