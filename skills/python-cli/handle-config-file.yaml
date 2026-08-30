@@ -1,0 +1,232 @@
+id: python-cli.handle-config-file
+version: "1.0.0"
+owner: victor
+status: stable
+tags: [python, cli, config, toml, yaml, pydantic, settings, dotenv, xdg]
+
+intent: >
+  Добавление слоя конфигурации к CLI-приложению: выбор формата (TOML/YAML/JSON/dotenv),
+  схема через Pydantic, приоритет источников (файл → env → флаги), XDG-пути,
+  валидация и понятные ошибки пользователю.
+
+use_when:
+  - Нужно добавить config-файл к CLI (TOML, YAML, JSON, .env)
+  - Нужно управлять настройками через несколько источников (файл + env + CLI-флаги)
+  - Нужна валидация конфига с понятными сообщениями об ошибках
+  - Нужно найти правильное место для хранения конфига (XDG, ~/.appname, CWD)
+  - Нужны команды config show / config set / config init
+
+avoid_when:
+  - Приложение однокомандное и без параметров (достаточно флагов)
+  - Конфиг уже есть и нужна только бизнес-логика
+  - Проект не CLI (веб / библиотека)
+
+inputs:
+  required:
+    - name: app_name
+      description: "Имя приложения (snake_case). Используется для поиска конфиг-файла."
+    - name: config_fields
+      description: >
+        Список полей конфига с типами и дефолтами. Например:
+        'api_url: str, timeout: int = 30, debug: bool = False'
+  optional:
+    - name: format
+      description: "Формат конфига: toml, yaml, json, dotenv, auto"
+      default: "toml"
+    - name: framework
+      description: "CLI-фреймворк: typer, click, argparse"
+      default: "typer"
+    - name: python_version
+      description: "Минимальная версия Python"
+      default: "3.12"
+    - name: storage_strategy
+      description: >
+        Где хранить конфиг: xdg (XDG_CONFIG_HOME), home (~/.appname),
+        cwd (текущая директория), auto (XDG если есть, иначе home)
+      default: "auto"
+    - name: env_prefix
+      description: "Префикс переменных окружения. Например APP → APP_API_URL. Пусто — без env override."
+      default: ""
+    - name: add_config_commands
+      description: "Добавить CLI-команды config show / config set / config init"
+      default: "yes"
+    - name: existing_code
+      description: "Текущий код приложения (если есть)"
+      default: "нет"
+
+output_contract:
+  format: markdown
+  must_include:
+    - format_choice_rationale    # почему выбран данный формат
+    - config_schema              # Pydantic-модель с полями, типами, дефолтами, описаниями
+    - config_loader              # функция load_config() с приоритетом источников
+    - config_file_location       # логика поиска файла: XDG / home / cwd
+    - env_override               # как env-переменные перекрывают файл (если env_prefix задан)
+    - install_command            # uv add с нужными пакетами
+    - integration_snippet        # как подключить к главной команде / app
+    - example_config_file        # пример config.toml (или нужного формата)
+    - error_messages             # пример ValidationError → понятное сообщение пользователю
+  optional_if_add_config_commands_yes:
+    - config_subcommands         # config show, config set, config init команды
+
+prompt_template: |
+  {common_style}
+  {common_safety}
+
+  Ты senior Python engineer, специализируешься на CLI-архитектуре и управлении конфигурацией.
+
+  ## Задача: добавить слой конфигурации к CLI-приложению
+
+  **Приложение:** {app_name}
+  **Поля конфига:** {config_fields}
+  **Формат:** {format}
+  **CLI-фреймворк:** {framework}
+  **Python:** {python_version}+
+  **Хранение конфига:** {storage_strategy}
+  **Env-префикс:** {env_prefix}
+  **Добавить команды config show/set/init:** {add_config_commands}
+
+  ## Текущий код
+
+  ```python
+  {existing_code}
+  ```
+
+  ## Требования к ответу
+
+  ### 1. Выбор формата и обоснование
+  Если `format=auto` — выбери сам и объясни почему (1–2 предложения).
+  Ориентир:
+  - TOML: структурированный конфиг с комментариями, человекочитаемый → лучший выбор для CLI-инструментов
+  - YAML: если пользователи ожидают YAML (Ansible, Kubernetes-экосистема)
+  - JSON: только если нужна машинная обработка
+  - dotenv: только для secrets / 12-factor apps
+
+  ### 2. Pydantic-схема
+  Класс `AppConfig(BaseModel)` или `AppConfig(BaseSettings)` с:
+  - Всеми полями из `{config_fields}` с типами, дефолтами, `Field(description=...)`
+  - Если env_prefix задан — `model_config = SettingsConfigDict(env_prefix='{env_prefix}_')`
+  - Валидаторы (@field_validator) для нетривиальных полей (URL, пути, диапазоны)
+  - Полная типизация
+
+  ### 3. Загрузчик конфига
+  Функция `load_config(config_path: Path | None = None) -> AppConfig` с приоритетом:
+  1. Явный путь (аргумент функции / --config флаг)
+  2. Переменная окружения `{app_name.upper()}_CONFIG`
+  3. XDG_CONFIG_HOME/{app_name}/config.toml (или ~/.{app_name}/config.toml)
+  4. ./config.toml (CWD)
+  5. Дефолты из Pydantic-схемы
+
+  Обёртка ошибок: ValidationError → typer.echo с понятным текстом, raise typer.Exit(1).
+
+  ### 4. Расположение конфиг-файла
+  Функция `get_config_path() -> Path` с XDG_CONFIG_HOME поддержкой.
+  Стратегия: {storage_strategy}.
+  Пример для macOS, Linux, Windows (если применимо).
+
+  ### 5. Env-переменные (если env_prefix задан)
+  Таблица: поле конфига → имя env-переменной.
+  Показать как pydantic-settings автоматически читает env.
+
+  ### 6. Установка
+  ```
+  uv add pydantic
+  ```
+  Если env: `uv add pydantic-settings`
+  Если YAML: `uv add pyyaml`
+
+  ### 7. Интеграция с командой
+  Показать изменённый entry-point: как передать AppConfig в команду.
+  Паттерн: ленивая загрузка через `@app.callback()` или `typer.Option`.
+  Добавить `--config PATH` флаг к главной команде.
+
+  ### 8. Пример конфиг-файла
+  Готовый `config.toml` (или нужный формат) с комментариями к каждому полю.
+
+  ### 9. Понятные ошибки
+  Показать как перехватить `ValidationError` и вывести:
+  ```
+  Error: invalid config at ~/.config/{app_name}/config.toml
+    - timeout: value must be greater than 0 (got -1)
+    - api_url: invalid URL format
+  ```
+  Без Python traceback для пользователя.
+
+  ### 10. Команды config (если add_config_commands=yes)
+  ```
+  {app_name} config show    # вывести текущий конфиг (Rich table или plain)
+  {app_name} config set KEY VALUE  # изменить одно поле в файле
+  {app_name} config init    # создать конфиг с дефолтами
+  ```
+  Полный код каждой команды.
+
+quality_checks:
+  - has_format_rationale: true
+  - has_pydantic_schema: true
+  - has_load_config_function: true
+  - has_priority_chain: true
+  - has_config_path_logic: true
+  - has_install_command: true
+  - has_integration_snippet: true
+  - has_example_config_file: true
+  - has_user_friendly_errors: true
+  - code_is_fully_typed: true
+
+known_failures:
+  - issue: "Модель использует pydantic v1 API вместо v2"
+    symptom: >
+      Генерируется @validator вместо @field_validator,
+      Config class вместо model_config = SettingsConfigDict(...).
+    fix: >
+      В prompt явно указано v2 API. Если модель всё равно выдаёт v1 —
+      добавить в existing_code: 'from pydantic import BaseModel  # pydantic>=2.0'.
+
+  - issue: "Нет приоритетной цепочки источников"
+    symptom: >
+      Загрузчик читает только файл, игнорирует env и явный путь.
+    fix: >
+      Цепочка явно расписана в требованиях (5 уровней).
+      Для env использовать pydantic-settings BaseSettings, не ручной os.environ.
+
+  - issue: "ValidationError не перехватывается → traceback в терминале"
+    symptom: >
+      Пользователь видит 'pydantic.ValidationError: 1 validation error for AppConfig'
+      вместо человеческого сообщения.
+    fix: >
+      В prompt обязателен пример обёртки ошибок. Секция error_messages в must_include.
+
+  - issue: "Конфиг-файл ищется только в CWD"
+    symptom: >
+      get_config_path() возвращает Path('./config.toml') без XDG/home fallback.
+    fix: >
+      Явно расписан порядок поиска и функция get_config_path() в требованиях.
+
+  - issue: "config set не обновляет файл атомарно"
+    symptom: >
+      При записи через tomllib/tomli_w используется прямой open() без atomic write,
+      при сбое файл повреждается.
+    fix: >
+      Использовать tempfile + os.replace() для атомарной записи.
+      Добавлено в требования к команде config set.
+
+examples:
+  - description: "Простой конфиг для HTTP-клиента"
+    app_name: "fetcher"
+    config_fields: "base_url: str, timeout: int = 30, retries: int = 3, verbose: bool = False"
+    format: toml
+    env_prefix: "FETCHER"
+    add_config_commands: "yes"
+
+  - description: "Конфиг деплой-утилиты с несколькими окружениями"
+    app_name: "deploy_tool"
+    config_fields: "server: str, user: str, key_path: Path, dry_run: bool = False"
+    format: yaml
+    storage_strategy: xdg
+    add_config_commands: "no"
+
+  - description: "Минимальный конфиг без env"
+    app_name: "myapp"
+    config_fields: "output_dir: Path = Path('output'), workers: int = 4"
+    format: toml
+    env_prefix: ""
+    add_config_commands: "yes"
