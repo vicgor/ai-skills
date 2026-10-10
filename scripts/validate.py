@@ -153,7 +153,7 @@ def check_eval_structure(registry: dict) -> tuple[Errors, Warnings]:
                         errors.append(f"[EVAL EXPECTED] {where} — пустой expected")
                     for k in EXPECTED_LIST_KEYS:
                         v = expected.get(k)
-                        if v is not None and not (isinstance(v, list) and all(isinstance(s, str) for s in v)):
+                        if v is not None and not (isinstance(v, list) and all(isinstance(s, str) or (isinstance(s, list) and s and all(isinstance(o, str) for o in s)) for s in v)):
                             errors.append(f"[EVAL EXPECTED] {where} — '{k}' должен быть списком строк")
                     q = expected.get("quality")
                     if q is not None and not isinstance(q, dict):

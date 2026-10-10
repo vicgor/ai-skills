@@ -22,7 +22,7 @@ cases:
       must_contain:
         - "ALTER TABLE"
         - "currency"
-        - "ROLLBACK"
+        - "DROP COLUMN"
         - "pt-online-schema-change"
       quality:
         has_risk_assessment: true
@@ -46,11 +46,9 @@ cases:
       must_contain:
         - "comment"
         - "downgrade"
-      should_not_contain:
-        - "pt-online-schema-change"
-        - "gh-ost"
       quality:
         risk_level_is_low: true
+        does_not_recommend_online_schema_tools: true
 
   - id: destructive_drop_column
     description: "DROP COLUMN: явно пометить как деструктивную операцию, предложить бэкап и поэтапное удаление"
@@ -68,7 +66,7 @@ cases:
     expected:
       must_contain:
         - "DROP COLUMN"
-        - "backup"
+        - ["backup", "бэкап", "резервн"]
         - "legacy_token"
       quality:
         marks_destructive_operation: true

@@ -97,7 +97,8 @@ def check_expected(output: str, expected: dict) -> list[str]:
     failures = []
     low = output.lower()
     for s in expected.get("must_contain", []) or []:
-        if str(s).lower() not in low:
+        options = s if isinstance(s, list) else [s]
+        if not any(str(o).lower() in low for o in options):
             failures.append(f"нет обязательной подстроки: {s!r}")
     for s in expected.get("should_not_contain", []) or []:
         if str(s).lower() in low:
