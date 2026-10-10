@@ -1,0 +1,83 @@
+skill_id: python-cli.add-tui-component
+description: "Тест-кейсы для проверки скилла add-tui-component"
+
+cases:
+  - id: rich_table_noninteractive
+    description: "Таблица результатов без интерактивности: выбрать Rich, объяснить почему не Textual, полный код и команда установки"
+    input:
+      library: "auto"
+      component_type: "table"
+      component_goal: "Показать список скиллов в виде таблицы с колонками id, версия, домен"
+      current_code: |
+        import typer
+
+        app = typer.Typer()
+
+        @app.command()
+        def list_skills():
+            for s in load_skills():
+                typer.echo(f"{s.id} {s.version} {s.domain}")
+    expected:
+      must_contain:
+        - "rich"
+        - "Table"
+        - "console.print"
+        - "uv add"
+      should_not_contain:
+        - "from textual"
+      quality:
+        has_library_choice_rationale: true
+        has_integration_snippet: true
+        has_usage_example: true
+
+  - id: textual_interactive_menu
+    description: "Интерактивное меню с навигацией и выбором: выбрать Textual, описать keybindings и сообщения"
+    input:
+      library: "auto"
+      component_type: "menu"
+      component_goal: "Меню выбора скилла стрелками с поиском по вводу и подтверждением Enter"
+      current_code: |
+        import typer
+
+        app = typer.Typer()
+
+        @app.command()
+        def pick():
+            name = input("skill: ")
+            print(name)
+    expected:
+      must_contain:
+        - "textual"
+        - "BINDINGS"
+        - "Enter"
+      quality:
+        has_library_choice_rationale: true
+        has_keybindings_and_events: true
+        has_install_command: true
+
+  - id: textual_async_no_blocking
+    description: "async_context=да: не использовать блокирующие вызовы в Textual, применять async/worker"
+    input:
+      library: "textual"
+      async_context: "да"
+      component_type: "log"
+      component_goal: "Лог-панель, которая показывает ответы HTTP API в реальном времени"
+      current_code: |
+        import asyncio
+        import httpx
+
+        async def poll(url: str):
+            async with httpx.AsyncClient() as c:
+                while True:
+                    r = await c.get(url)
+                    print(r.text)
+                    await asyncio.sleep(2)
+    expected:
+      must_contain:
+        - "async"
+        - "work"
+      should_not_contain:
+        - "time.sleep"
+        - "requests.get"
+      quality:
+        avoids_blocking_code_in_async: true

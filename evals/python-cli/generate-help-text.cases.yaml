@@ -1,0 +1,46 @@
+skill_id: python-cli.generate-help-text
+description: "Тест-кейсы для проверки скилла generate-help-text"
+
+cases:
+  - id: detailed_help_with_examples
+    description: "Развёрнутый стиль: короткое и длинное описание, 3-5 примеров с реальными данными, готовый фрагмент кода"
+    input:
+      framework: "typer"
+      style: "развёрнутый"
+      command_description: "Команда export выгружает отчёт за период в CSV или JSON. Аргумент: period (YYYY-MM). Опции: --format (csv|json, по умолчанию csv), --output (путь файла), --overwrite (перезаписать существующий файл)"
+    expected:
+      must_contain:
+        - "--format"
+        - "--output"
+        - "2026-"
+        - "typer.Option"
+      quality:
+        has_short_description_one_line: true
+        has_3_to_5_examples: true
+        has_ready_code_snippet: true
+        has_notes: true
+
+  - id: short_style_one_line
+    description: "style=краткий: одна строка описания без длинных примеров"
+    input:
+      framework: "click"
+      style: "краткий"
+      command_description: "Команда clean удаляет временные файлы старше N дней. Опция --days, по умолчанию 7"
+    expected:
+      must_contain:
+        - "--days"
+        - "help="
+      quality:
+        short_description_is_single_line: true
+        no_long_multi_paragraph_text: true
+
+  - id: insufficient_description_no_invention
+    description: "Слишком скупое описание: не выдумывать опции, отметить в notes что неясно"
+    input:
+      command_description: "Команда sync"
+    expected:
+      must_contain:
+        - "?"
+      quality:
+        does_not_invent_options: true
+        notes_mention_missing_details: true

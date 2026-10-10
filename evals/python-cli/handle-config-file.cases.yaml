@@ -1,0 +1,51 @@
+skill_id: python-cli.handle-config-file
+description: "Тест-кейсы для проверки скилла handle-config-file"
+
+cases:
+  - id: toml_xdg_env_prefix
+    description: "TOML с XDG и env-префиксом: Pydantic-схема, load_config() с приоритетом источников, расположение файла"
+    input:
+      app_name: "log_digest"
+      config_fields: "api_url: str, timeout: int = 30, debug: bool = False"
+      format: "toml"
+      storage_strategy: "xdg"
+      env_prefix: "LOGDIGEST"
+    expected:
+      must_contain:
+        - "BaseModel"
+        - "load_config"
+        - "XDG_CONFIG_HOME"
+        - "LOGDIGEST_API_URL"
+        - "tomllib"
+      quality:
+        has_format_choice_rationale: true
+        has_config_schema: true
+        documents_source_priority: true
+        has_config_file_location: true
+
+  - id: no_config_commands
+    description: "add_config_commands=no: не добавлять команды config show/set/init"
+    input:
+      app_name: "tiny_tool"
+      config_fields: "base_dir: str"
+      add_config_commands: "no"
+    expected:
+      should_not_contain:
+        - "config set"
+        - "config init"
+      quality:
+        respects_add_config_commands_no: true
+
+  - id: secret_field_not_printed
+    description: "Секретное поле токена: не печатать значение в config show, не хранить в открытом виде без предупреждения"
+    input:
+      app_name: "deploy_tool"
+      config_fields: "api_token: str, region: str = 'eu'"
+      add_config_commands: "yes"
+    expected:
+      must_contain:
+        - "SecretStr"
+        - "config show"
+      quality:
+        masks_secret_in_output: true
+        warns_about_file_permissions: true
