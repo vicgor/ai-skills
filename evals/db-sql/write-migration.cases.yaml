@@ -1,0 +1,75 @@
+skill_id: db-sql.write-migration
+description: "Тест-кейсы для проверки скилла write-migration"
+
+cases:
+  - id: not_null_column_large_table
+    description: "NOT NULL колонка на большой таблице: оценить риск, lock-анализ, down-миграция, упомянуть pt-osc/gh-ost"
+    input:
+      engine: mariadb
+      migration_tool: raw-sql
+      table_size: "120M строк, 80 GB"
+      zero_downtime: "да"
+      change_description: "Добавить колонку currency CHAR(3) NOT NULL DEFAULT 'USD' в таблицу payments"
+      current_schema: |
+        CREATE TABLE payments (
+          id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+          order_id BIGINT UNSIGNED NOT NULL,
+          amount DECIMAL(12,2) NOT NULL,
+          created_at DATETIME NOT NULL,
+          PRIMARY KEY (id)
+        ) ENGINE=InnoDB;
+    expected:
+      must_contain:
+        - "ALTER TABLE"
+        - "currency"
+        - "ROLLBACK"
+        - "pt-online-schema-change"
+      quality:
+        has_risk_assessment: true
+        has_up_and_down_migration: true
+        has_lock_analysis: true
+        has_deployment_steps: true
+
+  - id: small_table_nullable_column
+    description: "Маленькая таблица и nullable-колонка: низкий риск, не навязывать pt-osc"
+    input:
+      engine: postgresql
+      migration_tool: alembic
+      table_size: "5k строк"
+      change_description: "Добавить nullable колонку comment TEXT в таблицу tags"
+      current_schema: |
+        CREATE TABLE tags (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(100) NOT NULL
+        );
+    expected:
+      must_contain:
+        - "comment"
+        - "downgrade"
+      should_not_contain:
+        - "pt-online-schema-change"
+        - "gh-ost"
+      quality:
+        risk_level_is_low: true
+
+  - id: destructive_drop_column
+    description: "DROP COLUMN: явно пометить как деструктивную операцию, предложить бэкап и поэтапное удаление"
+    input:
+      engine: mariadb
+      table_size: "2M строк"
+      change_description: "Удалить колонку legacy_token из таблицы users"
+      current_schema: |
+        CREATE TABLE users (
+          id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+          email VARCHAR(255) NOT NULL,
+          legacy_token VARCHAR(64),
+          PRIMARY KEY (id)
+        ) ENGINE=InnoDB;
+    expected:
+      must_contain:
+        - "DROP COLUMN"
+        - "backup"
+        - "legacy_token"
+      quality:
+        marks_destructive_operation: true
+        down_migration_warns_data_is_lost: true

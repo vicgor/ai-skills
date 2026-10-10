@@ -1,0 +1,74 @@
+skill_id: db-sql.schema-review
+description: "Тест-кейсы для проверки скилла schema-review"
+
+cases:
+  - id: orders_schema_known_issues
+    description: "Схема заказов из examples: FLOAT для денег, utf8 вместо utf8mb4, нет индексов и внешних ключей"
+    input:
+      engine: mariadb
+      context: "OLTP, интернет-магазин, ~10k заказов/день"
+      focus: "всё"
+      schema: |
+        CREATE TABLE orders (
+          id          INT NOT NULL AUTO_INCREMENT,
+          user_id     INT,
+          status      VARCHAR(50),
+          total       FLOAT,
+          address     TEXT,
+          created     DATETIME,
+          updated     DATETIME,
+          notes       TEXT,
+          extra_data  TEXT,
+          PRIMARY KEY (id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+    expected:
+      must_contain:
+        - "DECIMAL"
+        - "utf8mb4"
+        - "INDEX"
+        - "FOREIGN KEY"
+      quality:
+        issues_have_examples: true
+        has_corrected_ddl: true
+        has_priority_list: true
+        notes_migration_complexity: true
+
+  - id: good_schema_no_invented_problems
+    description: "Хорошая схема: не выдумывать критичных проблем, признать сильные стороны"
+    input:
+      engine: postgresql
+      context: "OLTP"
+      schema: |
+        CREATE TABLE accounts (
+          id          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+          email       TEXT NOT NULL UNIQUE,
+          created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+    expected:
+      should_not_contain:
+        - "критическ"
+        - "переписать схему"
+      quality:
+        does_not_invent_critical_issues: true
+        has_priority_list: true
+
+  - id: focus_security
+    description: "focus=безопасность: хранение паролей и PII, а не нормализация"
+    input:
+      engine: mariadb
+      focus: "безопасность"
+      schema: |
+        CREATE TABLE users (
+          id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+          email VARCHAR(255),
+          password VARCHAR(50),
+          card_number VARCHAR(20),
+          PRIMARY KEY (id)
+        ) ENGINE=InnoDB;
+    expected:
+      must_contain:
+        - "password"
+        - "hash"
+        - "card_number"
+      quality:
+        issues_focus_on_security: true

@@ -1,0 +1,54 @@
+skill_id: db-sql.diagnose-performance
+description: "Тест-кейсы для проверки скилла diagnose-performance"
+
+cases:
+  - id: symptoms_only_no_invented_numbers
+    description: "Только симптомы без метрик: 2-3 гипотезы и план с командами, без выдуманных цифр"
+    input:
+      engine: mariadb
+      symptoms: "С 14:00 сайт тормозит, страницы с каталогом грузятся по 10 секунд, раньше 1 секунда"
+    expected:
+      must_contain:
+        - "SHOW FULL PROCESSLIST"
+        - "slow query log"
+      should_not_contain:
+        - "ваш CPU загружен на"
+      quality:
+        has_2_to_3_causes_ranked: true
+        has_numbered_diagnostic_steps: true
+        has_monitoring_queries: true
+
+  - id: processlist_lock_waits
+    description: "В processlist десятки запросов в состоянии Waiting for table metadata lock: найти блокирующую сессию"
+    input:
+      engine: mariadb
+      environment: "production MariaDB 10.11"
+      symptoms: "Все запросы к orders зависли, соединения растут"
+      processlist: |
+        Id   User  Time  State                                Info
+        101  app   1840  Sending data                         ALTER TABLE orders ADD INDEX idx_status (status)
+        102  app   1790  Waiting for table metadata lock      SELECT * FROM orders WHERE id=5
+        103  app   1788  Waiting for table metadata lock      UPDATE orders SET status='paid' WHERE id=7
+    expected:
+      must_contain:
+        - "metadata lock"
+        - "101"
+        - "KILL"
+      quality:
+        identifies_blocking_session: true
+        quick_fixes_have_risk_note: true
+
+  - id: postgresql_not_mysql_commands
+    description: "engine=postgresql: команды под PostgreSQL, не MySQL"
+    input:
+      engine: postgresql
+      symptoms: "CPU 90% на primary, растёт число активных соединений"
+    expected:
+      must_contain:
+        - "pg_stat_activity"
+        - "pg_stat_statements"
+      should_not_contain:
+        - "SHOW FULL PROCESSLIST"
+        - "slow_query_log"
+      quality:
+        commands_match_engine: true
