@@ -167,3 +167,9 @@ python render.py render git.write-commit-message \
   --var scope=cli \
   --file diff_or_description=./my.diff
 ```
+
+## Где хранить примеры
+
+- Основной пример входных данных лежит в `examples/{domain}/{skill-name}-example.md`.
+- Блок `examples:` внутри YAML скилла необязателен: это краткая выжимка (имя, входы, ключевые ожидания) для быстрого просмотра через `render.py show`.
+- При расхождении источником истины считается файл в `examples/`.
