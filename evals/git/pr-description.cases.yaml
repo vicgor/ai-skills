@@ -1,0 +1,52 @@
+skill_id: git.pr-description
+description: "Тест-кейсы для проверки скилла pr-description"
+
+cases:
+  - id: feature_with_tests
+    description: "Обычная фича: заголовок, summary, список изменений, инструкции по тестированию, чеклист ревьюера"
+    input:
+      goal: "Добавить флаг --json для вывода списка скиллов в машиночитаемом формате"
+      diff_or_description: |
+        render.py: в команду list добавлена опция --json, при её наличии
+        вывод формируется через json.dumps вместо click.echo построчно.
+        tests/test_list.py: два новых теста на --json и на пустой реестр.
+      issue_ref: "#12"
+    expected:
+      must_contain:
+        - "--json"
+        - "#12"
+        - "test"
+      quality:
+        has_pr_title: true
+        has_testing_instructions: true
+        has_reviewer_checklist: true
+
+  - id: breaking_change_prominent
+    description: "Breaking change должен быть выделен заметно, а не спрятан в списке"
+    input:
+      goal: "Переименовать опцию --output-dir в --out"
+      diff_or_description: |
+        cli.py: опция --output-dir переименована в --out.
+        Старое название больше не принимается, алиас не оставлен.
+      breaking_changes: "Скрипты пользователей с --output-dir перестанут работать"
+    expected:
+      must_contain:
+        - "--out"
+        - "--output-dir"
+        - "BREAKING"
+      quality:
+        mentions_breaking_changes_prominently: true
+
+  - id: tiny_diff_no_invented_testing
+    description: "Минимальный diff без тестового контекста: не выдумывать результаты тестов и скриншоты"
+    input:
+      goal: "Исправить опечатку в README"
+      diff_or_description: "README.md: 'recieve' заменено на 'receive'"
+    expected:
+      must_contain:
+        - "README"
+      should_not_contain:
+        - "все тесты прошли"
+        - "screenshot"
+      quality:
+        keeps_summary_short: true

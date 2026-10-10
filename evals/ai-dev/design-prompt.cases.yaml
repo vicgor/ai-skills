@@ -1,0 +1,76 @@
+skill_id: ai-dev.design-prompt
+description: "Тест-кейсы для проверки скилла design-prompt"
+
+cases:
+  - id: write_from_scratch_domain_role
+    description: "mode=write: domain-specific роль без 'helpful assistant', есть uncertainty handling"
+    input:
+      mode: write
+      goal: "Помогать backend-разработчику писать безопасные обратимые миграции PostgreSQL"
+      target_model: universal
+    expected:
+      must_contain:
+        - "PostgreSQL"
+        - "ask"
+      should_not_contain:
+        - "helpful assistant"
+      quality:
+        role_sentence_under_20_words: true
+        has_uncertainty_handling: true
+        has_constraints_section: true
+        explicit_output_format: true
+
+  - id: improve_vague_prompt
+    description: "mode=improve: диагноз с нумерованными проблемами, каждой соответствует исправление"
+    input:
+      mode: improve
+      goal: "Ревью pull request в Python-проекте: найти баги и риски"
+      current_prompt: |
+        You are a helpful assistant. Review the code and be helpful.
+        Give good feedback and be nice.
+    expected:
+      must_contain:
+        - "diagnosis"
+        - "helpful"
+      quality:
+        diagnosis_present: true
+        every_diagnosis_issue_has_fix: true
+        has_uncertainty_handling: true
+
+  - id: improve_without_current_prompt
+    description: "mode=improve без current_prompt: попросить прислать промпт, не выдумывать исходник"
+    input:
+      mode: improve
+      goal: "Поддержка клиентов интернет-магазина"
+    expected:
+      must_contain:
+        - "current_prompt"
+      should_not_contain:
+        - "You are a"
+      quality:
+        asks_for_missing_input: true
+        max_code_blocks: 0
+
+  - id: vague_goal_asks_clarification
+    description: "Расплывчатый goal: задать уточняющий вопрос до написания промпта"
+    input:
+      mode: write
+      goal: "Помогать с разными задачами"
+    expected:
+      must_contain:
+        - "?"
+      quality:
+        asks_clarifying_question: true
+
+  - id: conflicting_constraints_priority
+    description: "Конфликтующие требования краткости и детальности: должен быть явный приоритет правил"
+    input:
+      mode: write
+      goal: "Объяснять студентам ошибки в Python-коде"
+      tone: "concise but explain everything in detail"
+    expected:
+      must_contain:
+        - "Unless"
+      quality:
+        resolves_conflicting_instructions: true
+        no_unconditional_always: true

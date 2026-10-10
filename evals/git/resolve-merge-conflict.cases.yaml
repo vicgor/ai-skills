@@ -1,0 +1,72 @@
+skill_id: git.resolve-merge-conflict
+description: "Тест-кейсы для проверки скилла resolve-merge-conflict"
+
+cases:
+  - id: both_added_imports
+    description: "Обе ветки добавили разные импорты: объединить, убрать conflict markers"
+    input:
+      our_branch: "main"
+      their_branch: "feature/json-output"
+      conflict_diff: |
+        <<<<<<< HEAD
+        import click
+        import yaml
+        =======
+        import click
+        import json
+        >>>>>>> feature/json-output
+    expected:
+      must_contain:
+        - "import yaml"
+        - "import json"
+      should_not_contain:
+        - "<<<<<<<"
+        - ">>>>>>>"
+      quality:
+        resolved_code_has_no_markers: true
+        has_explanation: true
+
+  - id: semantic_conflict_signature
+    description: "Обе ветки изменили сигнатуру функции по-разному: предупредить о семантическом конфликте и предложить тест"
+    input:
+      our_branch: "main"
+      their_branch: "feature/timeout"
+      conflict_diff: |
+        <<<<<<< HEAD
+        def fetch(url: str, retries: int = 3) -> bytes:
+        =======
+        def fetch(url: str, timeout: float = 10.0) -> bytes:
+        >>>>>>> feature/timeout
+      context: "fetch вызывается в 7 местах, часть вызовов передаёт retries позиционно"
+    expected:
+      must_contain:
+        - "retries"
+        - "timeout"
+        - "test"
+      should_not_contain:
+        - "<<<<<<<"
+      quality:
+        highlights_risky_parts: true
+        suggests_tests: true
+
+  - id: strategy_ours
+    description: "strategy=ours: оставить нашу версию, но объяснить, что теряется из чужой"
+    input:
+      our_branch: "main"
+      their_branch: "feature/refactor"
+      strategy: "ours"
+      conflict_diff: |
+        <<<<<<< HEAD
+        TIMEOUT = 30
+        =======
+        TIMEOUT = 10
+        >>>>>>> feature/refactor
+    expected:
+      must_contain:
+        - "TIMEOUT = 30"
+        - "10"
+      should_not_contain:
+        - "<<<<<<<"
+      quality:
+        respects_requested_strategy: true
+        explains_what_is_lost: true
