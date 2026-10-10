@@ -1,0 +1,67 @@
+skill_id: python-cli.write-tests
+description: "Тест-кейсы для проверки скилла write-tests"
+
+cases:
+  - id: cli_command_with_http_mock
+    description: "Команда с HTTP-запросом: CliRunner, мок внешнего вызова, позитивные и негативные тесты, команда запуска"
+    input:
+      framework: "typer"
+      external_deps: "HTTP API через httpx"
+      current_code: |
+        import httpx
+        import typer
+
+        app = typer.Typer()
+
+        @app.command()
+        def fetch(url: str, timeout: float = 5.0):
+            r = httpx.get(url, timeout=timeout)
+            if r.status_code != 200:
+                typer.echo(f"error: {r.status_code}", err=True)
+                raise typer.Exit(code=1)
+            typer.echo(r.text)
+    expected:
+      must_contain:
+        - "CliRunner"
+        - "monkeypatch"
+        - "exit_code"
+        - "pytest"
+      quality:
+        has_fixtures: true
+        has_positive_tests: true
+        has_negative_tests: true
+        has_run_command: true
+        mocks_external_dependency: true
+
+  - id: parametrize_edge_cases
+    description: "Функция с граничными значениями: parametrize, пустой ввод, отрицательные числа"
+    input:
+      focus: "edge cases"
+      current_code: |
+        def chunk(items: list, size: int) -> list:
+            if size <= 0:
+                raise ValueError("size must be positive")
+            return [items[i:i + size] for i in range(0, len(items), size)]
+    expected:
+      must_contain:
+        - "parametrize"
+        - "pytest.raises"
+        - "ValueError"
+      quality:
+        covers_empty_input: true
+        covers_boundary_sizes: true
+
+  - id: pure_function_no_unneeded_mocks
+    description: "Чистая функция без внешних зависимостей: не выдумывать моки и фикстуры БД"
+    input:
+      current_code: |
+        def slugify(title: str) -> str:
+            return "-".join(title.lower().split())
+    expected:
+      must_contain:
+        - "slugify"
+      should_not_contain:
+        - "mock_db"
+        - "MagicMock"
+      quality:
+        does_not_invent_dependencies: true

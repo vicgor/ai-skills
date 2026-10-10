@@ -1,0 +1,54 @@
+skill_id: python-cli.setup-project
+description: "Тест-кейсы для проверки скилла setup-project"
+
+cases:
+  - id: minimal_typer_project
+    description: "Минимальный Typer-проект: все 8 обязательных секций, команды uv, конфиги ruff/mypy/pytest"
+    input:
+      project_name: "log_digest"
+      goal: "CLI для сводки логов приложения по уровням и времени"
+      framework: "typer"
+      python_version: "3.12"
+    expected:
+      must_contain:
+        - "pyproject.toml"
+        - "uv init"
+        - "[tool.ruff]"
+        - "[tool.mypy]"
+        - "[tool.pytest.ini_options]"
+        - "log_digest"
+      quality:
+        has_directory_structure: true
+        has_entrypoint_example: true
+        has_ci_snippet: true
+        project_scripts_entry_point: true
+
+  - id: pypi_with_extras
+    description: "Публикация на PyPI и extras rich/httpx: метаданные пакета, зависимости, шаг публикации в CI"
+    input:
+      project_name: "release_notes_gen"
+      goal: "Генерация release notes из истории git"
+      extras: "rich, httpx"
+      publish_to_pypi: "да"
+    expected:
+      must_contain:
+        - "rich"
+        - "httpx"
+        - "[build-system]"
+        - "uv build"
+      quality:
+        has_package_metadata: true
+        ci_mentions_publish_step: true
+
+  - id: ci_none_placeholder
+    description: "ci_platform=none: не создавать workflow, оставить заглушку"
+    input:
+      project_name: "tiny_tool"
+      goal: "Небольшая утилита для переименования файлов"
+      ci_platform: "none"
+    expected:
+      should_not_contain:
+        - "actions/checkout"
+        - "runs-on"
+      quality:
+        ci_is_placeholder_only: true

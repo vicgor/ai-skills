@@ -1,0 +1,53 @@
+skill_id: python-cli.design-command
+description: "Тест-кейсы для проверки скилла design-command"
+
+cases:
+  - id: typer_subcommands
+    description: "Typer-команда с подкомандами: сигнатура с типами, структура модулей, 3-5 примеров, UX-рекомендации"
+    input:
+      goal: "Команда backup для управления резервными копиями БД: создать, показать список, восстановить"
+      context: "Python CLI на Typer, уже есть команды init и status, конфиг в ~/.config/tool/config.toml"
+      framework: "typer"
+      subcommands: "create, list, restore"
+    expected:
+      must_contain:
+        - "typer"
+        - "create"
+        - "restore"
+        - "--help"
+      quality:
+        has_command_signature_with_types: true
+        has_module_structure: true
+        has_3_to_5_usage_examples: true
+        has_ux_recommendations: true
+        has_open_questions: true
+
+  - id: vague_goal_open_questions
+    description: "Расплывчатая цель: не придумывать детали, вынести неясности в open_questions"
+    input:
+      goal: "Команда для работы с данными"
+      context: "Python CLI"
+    expected:
+      must_contain:
+        - "?"
+      quality:
+        open_questions_not_empty: true
+        does_not_invent_data_format: true
+
+  - id: argparse_no_third_party
+    description: "argparse и запрет сторонних зависимостей: не предлагать typer или click"
+    input:
+      goal: "Команда convert для преобразования CSV в JSON"
+      context: "Утилита для серверов без доступа к PyPI"
+      framework: "argparse"
+      constraints: "только стандартная библиотека"
+    expected:
+      must_contain:
+        - "argparse"
+        - "add_argument"
+      should_not_contain:
+        - "import typer"
+        - "import click"
+        - "pip install"
+      quality:
+        respects_stdlib_only_constraint: true
