@@ -112,7 +112,7 @@ prompt_template: |
   ### 3. Загрузчик конфига
   Функция `load_config(config_path: Path | None = None) -> AppConfig` с приоритетом:
   1. Явный путь (аргумент функции / --config флаг)
-  2. Переменная окружения `{app_name.upper()}_CONFIG`
+  2. Переменная окружения `<APP_NAME>_CONFIG` (имя приложения заглавными буквами, например `LOG_DIGEST_CONFIG`)
   3. XDG_CONFIG_HOME/{app_name}/config.toml (или ~/.{app_name}/config.toml)
   4. ./config.toml (CWD)
   5. Дефолты из Pydantic-схемы
