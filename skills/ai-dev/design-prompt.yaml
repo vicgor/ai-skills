@@ -1,68 +1,95 @@
-# Скилл: ai-dev.design-prompt
-# Написать системный промпт с нуля или улучшить существующий.
-
 id: ai-dev.design-prompt
-version: "1.0"
+version: "2.0.0"
+owner: victor
 status: stable
-domain: ai-dev
+tags: [ai, llm, prompt, system-prompt, prompt-engineering, hallucination]
 
 intent: >
-  Написать новый системный промпт или улучшить существующий:
-  роль, тон, правила вывода, ограничения, формат ответа,
-  защита от галлюцинаций и edge cases.
+  Написать новый системный промпт или улучшить существующий: роль, тон,
+  правила вывода, ограничения, формат ответа, поведение при неполных данных,
+  защита от галлюцинаций и edge cases. Результат можно прогнать через
+  ai-dev.write-eval.
+
+use_when:
+  - Нужен системный промпт для ассистента, агента или LLM-фичи
+  - Существующий промпт даёт нестабильные, расплывчатые или галлюцинирующие ответы
+  - Меняется целевая модель и промпт нужно адаптировать
+  - Нужно зафиксировать формат вывода (markdown, JSON, смешанный)
+
+avoid_when:
+  - Нужно только отревьюить готовый промпт без переписывания (ai-dev.review-prompt, когда появится)
+  - Проблема в данных или RAG-контексте, а не в инструкциях
+  - Нужны eval-кейсы для промпта (используй ai-dev.write-eval)
 
 inputs:
   required:
-    - id: mode
+    - name: mode
       description: "Режим работы: 'write' (написать с нуля) или 'improve' (улучшить существующий)"
       example: "improve"
-    - id: goal
+    - name: goal
       description: "Что должен делать ассистент / какую задачу решает промпт"
       example: "Помогать разработчику писать миграции БД"
   optional:
-    - id: current_prompt
+    - name: current_prompt
       description: "Существующий промпт (обязателен при mode=improve)"
-    - id: target_model
+      default: "не предоставлен"
+    - name: failure_examples
+      description: "Реальные примеры плохих ответов текущего промпта (для mode=improve)"
+      default: "нет"
+    - name: target_model
       description: "Целевая модель: GPT-4o, Claude Sonnet, Gemini Pro и т.д."
       default: "universal"
-    - id: persona
+    - name: persona
       description: "Желаемая роль/персона ассистента"
       example: "Senior database engineer"
-    - id: output_format
+      default: "определи по goal"
+    - name: output_format
       description: "Формат ответа ассистента: markdown, plain text, JSON, mixed"
       default: "markdown"
-    - id: constraints
+    - name: constraints
       description: "Дополнительные ограничения или запреты"
       example: "Не предлагать решения за пределами PostgreSQL"
-    - id: tone
+      default: "нет"
+    - name: tone
       description: "Тон: formal, concise, friendly, Socratic и т.д."
       default: "concise and precise"
 
 output_contract:
+  format: markdown
+  must_include:
+    - diagnosis          # только при mode=improve
+    - prompt             # готовый системный промпт в code-блоке
+    - explanation        # ключевые решения, не пересказ промпта
+    - usage_example      # 1–2 примера вызова и ожидаемого ответа
+    - known_weaknesses   # 2–4 слабых места и как их смягчить
+  prefer:
+    - role sentence одной строкой, domain-specific
+    - явные ограничения вместо общих пожеланий
+    - положительные инструкции (что делать) вместе с запретами
+    - структура через заголовки или XML-теги для разделов промпта
+    - 1–3 few-shot примера, если формат вывода нестандартный
   sections:
     - name: diagnosis
       condition: "mode=improve"
       description: |
         Анализ текущего промпта: что работает, что сломано.
-        Конкретные проблемы (нумерованный список) — расплывчатая роль, отсутствие
+        Нумерованный список проблем: расплывчатая роль, отсутствие
         ограничений вывода, риск галлюцинаций, неявные edge cases.
     - name: prompt
       required: true
       description: |
-        Готовый системный промпт в code-блоке.
-        Всегда содержит:
+        Готовый системный промпт в code-блоке. Содержит:
           1. Role sentence — одна строка, кто ассистент и для кого.
           2. Core responsibilities — 3–6 конкретных обязанностей.
           3. Output format rules — структура, длина, markdown/plain.
           4. Constraints — явные запреты и ограничения.
           5. Uncertainty handling — как вести себя при неполных данных.
-          6. (Опционально) Persona/tone calibration.
+          6. (Опционально) Persona/tone calibration и few-shot примеры.
     - name: explanation
       required: true
       description: |
-        Объяснение ключевых решений (не пересказ промпта):
-        почему выбрана такая роль, почему такие ограничения,
-        как секция uncertainty handling снижает галлюцинации.
+        Объяснение ключевых решений (не пересказ промпта): почему такая
+        роль и ограничения, как uncertainty handling снижает галлюцинации.
     - name: usage_example
       required: true
       description: |
@@ -72,15 +99,58 @@ output_contract:
       required: true
       description: |
         2–4 ситуации, в которых промпт может дать плохой результат,
-        и как это митигировать (в т.ч. few-shot, temperature, tools).
+        и как это смягчить (few-shot, temperature, tools).
 
-quality_rules:
-  - rule: "Role sentence — одна строка, не более 20 слов, без вводных слов ('You are a helpful assistant')"
-  - rule: "Ни одна инструкция не начинается с 'Always' без конкретного условия — это создаёт конфликты"
-  - rule: "Uncertainty handling обязателен: ассистент должен знать, что делать при отсутствующих данных"
-  - rule: "Формат вывода явный: если ожидается список — сказано 'bulleted list', если prose — сказано 'prose'"
-  - rule: "Промпт проверяется на adversarial input: что будет, если пользователь подаст пустой запрос или противоречивые данные"
-  - rule: "При mode=improve: каждое изменение в диагнозе должно иметь соответствующее исправление в промпте"
+prompt_template: |
+  {common_style}
+  {common_safety}
+
+  Ты senior prompt engineer. Пишешь и улучшаешь системные промпты для
+  LLM-ассистентов и агентов.
+
+  ## Задача
+
+  **Режим:** {mode}
+  **Цель ассистента:** {goal}
+  **Целевая модель:** {target_model}
+  **Персона:** {persona}
+  **Формат ответа ассистента:** {output_format}
+  **Тон:** {tone}
+  **Ограничения:** {constraints}
+
+  ## Текущий промпт (для mode=improve)
+
+  {current_prompt}
+
+  ## Примеры плохих ответов текущего промпта
+
+  {failure_examples}
+
+  ## Правила качества
+
+  - Role sentence: одна строка, до 20 слов, domain-specific, без "helpful assistant".
+  - Каждая инструкция описывает желаемое поведение или даёт причину запрета;
+    "Always" без условия не используй, это создаёт конфликты.
+  - Uncertainty handling обязателен: что делать при отсутствующих данных
+    (спросить, отказаться, пометить допущение).
+  - Формат вывода явный: "bulleted list", "prose", "JSON со схемой".
+  - Приоритет правил указан, если возможен конфликт (краткость vs детали).
+  - Для target_model=universal избегай model-specific синтаксиса.
+  - Проверь промпт на adversarial input: пустой запрос, противоречивые данные.
+
+  ## Требования к ответу
+
+  1. Если mode=improve: сначала diagnosis, нумерованный список проблем.
+     Каждой проблеме должно соответствовать исправление в новом промпте.
+     Если current_prompt не предоставлен, не придумывай его: попроси
+     прислать и остановись.
+  2. Готовый системный промпт в code-блоке: role, responsibilities,
+     output format, constraints, uncertainty handling.
+  3. Объяснение ключевых решений, без пересказа промпта.
+  4. 1–2 примера вызова и ожидаемого ответа.
+  5. 2–4 слабых места промпта и способы их смягчить.
+  6. Если goal слишком расплывчат для domain-specific роли, задай
+     уточняющий вопрос до написания промпта.
 
 prompt_engineering_principles:
   role_sentence:
@@ -96,16 +166,49 @@ prompt_engineering_principles:
     do: "Respond with: (1) diagnosis in a numbered list, (2) SQL block, (3) risks as a bullet list."
     dont: "Format your response clearly."
 
+quality_checks:
+  - has_role_sentence_under_20_words: true
+  - no_helpful_assistant_phrasing: true
+  - has_constraints_section: true
+  - has_uncertainty_handling: true
+  - explicit_output_format: true
+  - no_unconditional_always: true
+  - adversarial_input_considered: true
+  - diagnosis_present_if_improve: true
+  - every_diagnosis_issue_has_fix: true
+  - asks_for_current_prompt_if_missing: true
+
 known_failures:
-  - failure: "Модель игнорирует role sentence и отвечает как generic assistant"
-    cause: "Role sentence слишком абстрактна или содержит 'helpful'"
-    fix: "Сделать роль domain-specific с конкретной аудиторией"
-  - failure: "Промпт без uncertainty handling — модель галлюцинирует недостающие данные"
-    cause: "Не указано поведение при missing inputs"
-    fix: "Добавить явный блок: 'If X is not provided, ask for it before proceeding'"
-  - failure: "Конфликтующие инструкции (e.g., 'be concise' и 'explain in detail')"
-    cause: "Нет приоритизации правил"
-    fix: "Добавить 'Unless user asks for elaboration, keep responses under N words'"
-  - failure: "Промпт для одной модели плохо работает на другой"
-    cause: "Инструкции заточены под специфику одного API"
-    fix: "При target_model=universal: избегать model-specific синтаксиса, использовать нейтральные конструкции"
+  - "Модель игнорирует role sentence и отвечает как generic assistant → сделать роль domain-specific с конкретной аудиторией"
+  - "Промпт без uncertainty handling, модель галлюцинирует недостающие данные → добавить 'If X is not provided, ask for it before proceeding'"
+  - "Конфликтующие инструкции ('be concise' и 'explain in detail') → добавить приоритет: 'Unless user asks for elaboration, keep responses under N words'"
+  - "Промпт для одной модели плохо работает на другой → при target_model=universal избегать model-specific синтаксиса"
+  - "mode=improve без current_prompt: модель выдумывает исходный промпт → требовать запросить его и остановиться"
+
+examples:
+  - name: "Написать с нуля"
+    input:
+      mode: write
+      goal: "Помогать разработчику писать безопасные миграции PostgreSQL"
+      target_model: universal
+    expected_output_highlights:
+      - "Role sentence про senior PostgreSQL engineer и backend-разработчиков"
+      - "Constraints: только PostgreSQL, обязательный down-скрипт"
+      - "Uncertainty handling: без схемы сначала попросить схему"
+
+  - name: "Улучшить расплывчатый промпт"
+    input:
+      mode: improve
+      goal: "Ревью pull request"
+      current_prompt: "You are a helpful assistant. Review the code and be helpful."
+    expected_output_highlights:
+      - "Diagnosis: расплывчатая роль, нет формата вывода, нет ограничений"
+      - "Каждая проблема из diagnosis исправлена в новом промпте"
+      - "known_weaknesses: огромные diff, отсутствие контекста репозитория"
+
+  - name: "improve без исходного промпта"
+    input:
+      mode: improve
+      goal: "Поддержка клиентов"
+    expected_output_highlights:
+      - "Просьба прислать current_prompt, без выдуманного исходника"
