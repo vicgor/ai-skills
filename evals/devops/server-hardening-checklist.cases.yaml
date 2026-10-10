@@ -1,0 +1,53 @@
+skill_id: devops.server-hardening-checklist
+description: "Тест-кейсы для проверки скилла server-hardening-checklist"
+
+cases:
+  - id: python_api_full_hardening
+    description: "Python API + MariaDB + Nginx: SSH key-only, UFW, fail2ban, проверка каждого пункта, предупреждение о блокировке"
+    input:
+      server_description: "Ubuntu 22.04, Python API за Nginx, MariaDB на том же сервере"
+      access_type: "SSH key-only"
+      open_ports: "22, 80, 443"
+      focus: "всё"
+    expected:
+      must_contain:
+        - "PasswordAuthentication no"
+        - "ufw"
+        - "fail2ban"
+        - "sshd -t"
+      quality:
+        has_numbered_checklist: true
+        has_config_snippets: true
+        has_verification_commands: true
+        has_priority_order: true
+        warns_about_lockout_risk: true
+
+  - id: database_not_exposed
+    description: "БД на том же сервере: порт 3306 не открывать наружу, bind-address на localhost"
+    input:
+      server_description: "Ubuntu 22.04, Django-приложение и MariaDB на одном сервере"
+      open_ports: "22, 80, 443"
+    expected:
+      must_contain:
+        - "bind-address"
+        - "127.0.0.1"
+      should_not_contain:
+        - "ufw allow 3306"
+      quality:
+        database_not_exposed_publicly: true
+
+  - id: focus_ssh_only
+    description: "focus=SSH: только SSH-секции, без разделов про бэкапы и мониторинг"
+    input:
+      server_description: "Ubuntu 22.04, VPS с одним Python-сервисом"
+      focus: "SSH"
+    expected:
+      must_contain:
+        - "sshd_config"
+        - "PermitRootLogin"
+      should_not_contain:
+        - "Prometheus"
+        - "logrotate"
+      quality:
+        stays_on_requested_focus: true
+        notes_what_breaks_if_misconfigured: true

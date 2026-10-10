@@ -1,0 +1,57 @@
+skill_id: devops.write-dockerfile
+description: "Тест-кейсы для проверки скилла write-dockerfile"
+
+cases:
+  - id: api_multistage_uv
+    description: "API на uv: multi-stage, non-root, healthcheck, .dockerignore, объяснение кэширования слоёв"
+    input:
+      app_description: "FastAPI-сервис, точка входа uvicorn app.main:app, порт 8000, зависимости в pyproject.toml и uv.lock"
+      package_manager: "uv"
+      requirements: "non-root user, healthcheck, минимальный образ"
+    expected:
+      must_contain:
+        - "FROM"
+        - "USER"
+        - "HEALTHCHECK"
+        - ".dockerignore"
+        - "uv sync"
+      should_not_contain:
+        - ":latest"
+      quality:
+        has_dockerfile: true
+        has_build_commands: true
+        has_security_notes: true
+        has_optimization_notes: true
+        uses_multi_stage_build: true
+
+  - id: optimize_existing_fat_dockerfile
+    description: "Толстый Dockerfile под root: slim-образ, порядок слоёв для кэша, non-root, объяснение изменений"
+    input:
+      app_description: "Flask-приложение, gunicorn, порт 5000"
+      existing_dockerfile: |
+        FROM python:3.12
+        COPY . /app
+        WORKDIR /app
+        RUN pip install -r requirements.txt
+        CMD ["python", "app.py"]
+    expected:
+      must_contain:
+        - "python:3.12-slim"
+        - "USER"
+      quality:
+        copies_dependency_files_before_source: true
+        explains_each_change: true
+        runs_as_non_root: true
+
+  - id: alpine_with_native_deps_warning
+    description: "python:alpine с numpy и psycopg2: предупредить про musl и сборку из исходников, предложить slim"
+    input:
+      app_description: "Сервис обработки данных на numpy и psycopg2, воркер"
+      base_image: "python:alpine"
+    expected:
+      must_contain:
+        - "musl"
+        - "slim"
+      quality:
+        warns_about_alpine_native_dependencies: true
+        offers_working_alternative: true

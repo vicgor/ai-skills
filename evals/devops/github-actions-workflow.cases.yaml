@@ -1,0 +1,69 @@
+skill_id: devops.github-actions-workflow
+description: "Тест-кейсы для проверки скилла github-actions-workflow"
+
+cases:
+  - id: python_cli_matrix_uv
+    description: "CLI на uv: matrix по версиям Python, раздельные jobs lint/test, кэш зависимостей"
+    input:
+      goal: "Запускать lint и тесты на каждый push и pull request"
+      project_context: "Python CLI на Typer, зависимости через uv, тесты pytest, линтер ruff"
+      python_version: "3.11, 3.12, 3.13"
+      package_manager: "uv"
+    expected:
+      must_contain:
+        - "astral-sh/setup-uv"
+        - "matrix"
+        - "ruff"
+        - "pytest"
+      should_not_contain:
+        - "pip install"
+      quality:
+        has_workflow_yaml: true
+        has_secrets_list: true
+        has_optimization_notes: true
+        separate_jobs_for_lint_and_test: true
+
+  - id: deploy_vps_ssh_secrets
+    description: "Деплой на VPS по SSH: секреты через secrets.*, environment, значения не печатаются в лог"
+    input:
+      goal: "После успешных тестов на main деплоить на VPS"
+      project_context: "Python API, systemd-сервис на VPS"
+      deploy_target: "VPS/SSH"
+      requirements: "environment production с ручным подтверждением"
+    expected:
+      must_contain:
+        - "secrets."
+        - "SSH_PRIVATE_KEY"
+        - "environment"
+        - "needs"
+      should_not_contain:
+        - "echo ${{ secrets"
+      quality:
+        secrets_not_hardcoded: true
+        deploy_depends_on_tests: true
+        lists_required_secrets: true
+
+  - id: optimize_existing_without_cache
+    description: "Существующий workflow без кэша: добавить кэш, объяснить выигрыш по времени"
+    input:
+      goal: "Ускорить CI"
+      project_context: "Python API, pytest"
+      existing_workflow: |
+        name: ci
+        on: [push]
+        jobs:
+          test:
+            runs-on: ubuntu-latest
+            steps:
+              - uses: actions/checkout@v4
+              - uses: actions/setup-python@v5
+                with:
+                  python-version: "3.12"
+              - run: pip install -r requirements.txt
+              - run: pytest
+    expected:
+      must_contain:
+        - "cache"
+      quality:
+        has_optimization_notes: true
+        explains_what_changed_and_why: true
