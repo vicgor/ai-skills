@@ -1,7 +1,7 @@
 # Каталог всех скиллов
 # Обновляй при добавлении/изменении скилла.
 
-version: "1.4"
+version: "1.5"
 
 domains:
   python-cli:
@@ -155,3 +155,21 @@ domains:
         intent: "Разрешить конфликт слияния: анализ, стратегия, итог"
         inputs_required: [conflict_diff]
         output: "анализ конфликта + resolved версия + объяснение"
+
+  ai-dev:
+    description: "Разработка AI-приложений: промпты, LLM-интеграции, агенты, evals, RAG"
+    skills:
+      - id: ai-dev.design-prompt
+        file: skills/ai-dev/design-prompt.yaml
+        status: stable
+        intent: "Написание или улучшение системного промпта"
+        inputs_required: [goal]
+        output: "промпт + структура + риски"
+
+      - id: ai-dev.write-eval
+        file: skills/ai-dev/write-eval.yaml
+        status: stable
+        intent: "Eval-сьют для LLM-фичи/агента: задачи из провалов, грейдеры, pass@k/pass^k"
+        inputs_required: [system_description, known_failures]
+        output: "eval spec + 20–50 задач + схема грейдеров + harness + метрики + протокол ревью"
+

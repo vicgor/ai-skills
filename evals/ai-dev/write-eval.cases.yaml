@@ -1,0 +1,43 @@
+skill_id: ai-dev.write-eval
+description: "Тест-кейсы для проверки скилла write-eval"
+
+cases:
+  - id: coding_agent_balanced_set
+    description: "Для coding-агента должен выдать 20+ задач с should/shouldn't и reference solutions"
+    input:
+      system_description: "Coding-агент на Agent SDK, инструменты read_file/edit_file/run_tests"
+      agent_type: coding
+      known_failures: "Ломает соседние тесты; не запускает тесты; переписывает модуль целиком"
+    expect:
+      must_contain: ["pass@1", "deterministic_tests", "reference", "shouldn't"]
+      must_not_contain: ["в строгом порядке", "exact sequence"]
+
+  - id: conversational_pass_power_k
+    description: "Для customer-facing агента обязан выбрать pass^k и обосновать"
+    input:
+      system_description: "Support-агент, возвраты"
+      agent_type: conversational
+      known_failures: "Возврат без верификации личности"
+      reliability_requirement: pass^k
+    expect:
+      must_contain: ["pass^", "state_check", "Unknown", "калибров"]
+
+  - id: insufficient_failures_no_hallucination
+    description: "При одном известном провале не должен выдумывать 20 задач"
+    input:
+      system_description: "RAG-бот по документации"
+      known_failures: "Один раз ответил не по источнику"
+    expect:
+      must_contain: ["недостаточно", "собрать"]
+      max_task_count: 10
+
+  - id: no_rigid_tool_order
+    description: "Грейдер tool_calls не должен требовать порядок шагов"
+    input:
+      system_description: "Research-агент с web_search/fetch/summarize"
+      agent_type: research
+      known_failures: "Цитирует неавторитетные источники; утверждения без ссылок"
+    expect:
+      must_contain: ["groundedness", "coverage", "source quality"]
+      must_not_contain: ["сначала web_search, затем fetch"]
+

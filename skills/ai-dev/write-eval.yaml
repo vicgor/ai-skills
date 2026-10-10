@@ -1,0 +1,220 @@
+id: ai-dev.write-eval
+version: "2.0.0"
+owner: victor
+status: stable
+tags: [ai, llm, agent, eval, testing, grader, rubric, regression]
+
+intent: >
+  Проектирование eval-сьюта для LLM-фичи или агента по методике
+  Anthropic "Demystifying evals for AI agents" (2026): задачи из реальных
+  провалов, комбинация грейдеров (code / model / human), разделение на
+  capability и regression, метрики pass@k / pass^k, обязательная проверка
+  транскриптов.
+
+use_when:
+  - Есть LLM-фича или агент, качество которого проверяется «на глаз»
+  - Пользователи жалуются «стало хуже», а измерить нечем
+  - Планируется смена модели / промпта / инструментов и нужен baseline
+  - Нужно превратить баг-репорты и ручные проверки в автотесты
+  - Пишется новый скилл в ai-skills и нужны evals/*.cases.yaml
+
+avoid_when:
+  - Нет ни одного примера провала или ручной проверки (сначала собери 5–10 реальных кейсов)
+  - Нужен A/B-тест на живом трафике или production-мониторинг (это другие инструменты)
+  - Нужно оценить только один промпт без агентного цикла → хватит review-prompt
+
+inputs:
+  required:
+    - name: system_description
+      description: "Что делает агент/фича: цель, инструменты, среда, пользователи"
+    - name: known_failures
+      description: "Список реальных провалов, баг-репортов, ручных проверок перед релизом (3+)"
+  optional:
+    - name: agent_type
+      description: "coding | conversational | research | computer-use | single-turn"
+      default: "auto"
+    - name: eval_goal
+      description: "capability (найти слабые места) | regression (защитить от отката) | both"
+      default: "both"
+    - name: existing_tests
+      description: "Уже имеющиеся тесты, рубрики, датасеты"
+    - name: environment
+      description: "Как можно изолировать и сбросить среду (docker, фикстуры БД, mock-инструменты)"
+    - name: harness
+      description: "Eval-фреймворк: pytest | Harbor | Braintrust | LangSmith | Langfuse | custom"
+      default: "pytest + custom runner"
+    - name: reliability_requirement
+      description: "Нужна ли консистентность (customer-facing → pass^k) или достаточно одного успеха (pass@k)"
+      default: "pass^k"
+    - name: budget
+      description: "Ограничения по стоимости / времени прогона"
+
+output_contract:
+  format: markdown
+  must_include:
+    - eval_spec              # scope, тип агента, что измеряем, что НЕ измеряем
+    - task_set               # 20–50 задач: id, desc, источник, тип (capability/regression), should/shouldn't
+    - task_schema            # YAML-схема одной задачи с graders и tracked_metrics
+    - graders_design         # code / model / human: что каждым проверяем, partial credit
+    - reference_solutions    # для каждой задачи — эталон, проходящий все грейдеры
+    - harness_plan           # изоляция среды, конкуренция, запись транскриптов, k трайлов
+    - metrics                # pass@k и/или pass^k, latency, tokens, cost per task
+    - transcript_review      # протокол чтения транскриптов и критерии «честного провала»
+    - maintenance            # ownership, порог насыщения, graduate capability→regression
+  prefer:
+    - deterministic graders first, LLM-judge where necessary, humans for calibration
+    - grade outcome, not path
+    - balanced should/shouldn't tasks
+    - every task passable by instruction-following agent
+
+prompt_template: |
+  {common_style}
+  {common_safety}
+
+  Ты senior AI engineer, строишь eval-системы для LLM-агентов по практике
+  Anthropic (Demystifying evals for AI agents, 2026).
+
+  ## Система под оценку
+
+  {system_description}
+
+  **Тип агента:** {agent_type}
+  **Цель eval:** {eval_goal}
+  **Среда и изоляция:** {environment}
+  **Harness:** {harness}
+  **Требование к надёжности:** {reliability_requirement}
+  **Бюджет:** {budget}
+
+  ## Известные провалы и ручные проверки
+
+  {known_failures}
+
+  ## Существующие тесты
+
+  {existing_tests}
+
+  ## Терминология (используй строго)
+
+  task — тест с входом и критериями успеха; trial — одна попытка;
+  grader — логика оценки (у задачи их несколько); transcript — полная
+  трасса (сообщения, tool calls, reasoning); outcome — финальное состояние
+  среды; eval harness — инфраструктура прогона; suite — набор задач.
+
+  ## Требования к ответу
+
+  1. **Eval spec.** Сформулируй 2–4 измерения успеха (например: «не ломает»,
+     «делает что просили», «делает хорошо»). Явно укажи, что не измеряем.
+
+  2. **Task set (20–50 задач).** Источники — только реальные провалы,
+     баг-трекер, ручные пред-релизные проверки. Для каждой задачи:
+     id, описание, источник, capability|regression, should|shouldn't.
+     Набор обязан быть сбалансирован: для каждого поведения есть кейсы,
+     где оно должно сработать, и где НЕ должно. Нельзя плодить задачи,
+     которые отличаются только формулировкой.
+
+  3. **Однозначность.** Проверь каждую задачу вопросом: «Дадут ли два
+     эксперта независимо одинаковый вердикт pass/fail?» Всё, что проверяет
+     грейдер, должно явно следовать из описания задачи (пути файлов,
+     форматы, пороги). Если порог «≥ X», грейдер проверяет «≥ X», а не «> X».
+
+  4. **Task schema.** Дай YAML одной задачи с полями:
+     task.id, desc, graders[] (type, params), tracked_metrics[].
+     Допустимые типы грейдеров: deterministic_tests, static_analysis,
+     state_check, tool_calls, transcript (max_turns, …), llm_rubric,
+     human_review. Ограничение: tool_calls проверяет наличие нужных
+     вызовов и параметры, но НЕ жёсткий порядок шагов.
+
+  5. **Graders design.**
+     - Детерминированные грейдеры — везде, где возможно (тесты, state check, regex, lint).
+     - LLM-judge — только для субъективного (тон, качество кода, полнота).
+       Для каждого измерения рубрики — отдельный judge; обязательна опция
+       «Unknown»; план калибровки с людьми (выборка 20–30 трайлов, целевое
+       согласие ≥ 85%).
+     - Human graders — spot-check и калибровка, не в основном цикле.
+     - Partial credit: для многокомпонентных задач опиши шкалу
+       (например, identify / verify / act = 0.3 / 0.3 / 0.4).
+     - Защита от обхода: как агент НЕ сможет пройти задачу, не решив её.
+
+  6. **Reference solutions.** Для каждой задачи (или группы) — эталонный
+     выход, проходящий все грейдеры. Это доказывает решаемость и
+     правильность конфигурации грейдеров.
+
+  7. **Harness plan.** Чистая среда на каждый trial (без общих файлов,
+     кэша, git-истории между прогонами), число трайлов k, параллельность,
+     запись полных транскриптов, одинаковый с продом agent harness.
+
+  8. **Metrics.** Выбери pass@k или pass^k исходя из requirement
+     (consistency → pass^k) и объясни. Добавь tracked: n_turns, n_toolcalls,
+     n_total_tokens, cost_per_task, time_to_first_token, time_to_last_token.
+
+  9. **Transcript review.** Протокол: сколько транскриптов читать после
+     каждого прогона, что искать (честный провал агента vs отклонённое
+     валидное решение vs баг грейдера). Правило: при 0% pass@k на задаче
+     сначала подозревать задачу, а не агента.
+
+  10. **Maintenance.** Кто владеет сьютом; порог насыщения (например,
+      >90% на capability → перевести в regression и добавить сложнее);
+      как контрибьютят новые задачи (PR из багов).
+
+  11. Если данных о провалах недостаточно для 20 задач — не выдумывай:
+      предложи 5–10 на основе данных и опиши, какие провалы собрать.
+
+quality_checks:
+  - has_eval_spec: true
+  - task_count_between_20_and_50_or_explicit_gap: true
+  - tasks_marked_capability_or_regression: true
+  - has_should_and_shouldnt_cases: true
+  - every_task_has_reference_solution: true
+  - deterministic_graders_preferred: true
+  - llm_judge_has_unknown_option_and_calibration_plan: true
+  - no_rigid_tool_call_ordering: true
+  - partial_credit_defined: true
+  - metric_choice_passk_vs_pass_power_k_justified: true
+  - clean_environment_per_trial: true
+  - transcript_review_protocol_present: true
+
+known_failures:
+  - "Модель генерирует сотни синтетических задач вместо 20–50 из реальных провалов → усилить требование указывать источник каждой задачи"
+  - "Грейдер проверяет точную последовательность tool calls → штраф за валидные альтернативные пути; заменить на проверку outcome + наличия вызовов"
+  - "Односторонний набор (только «должен искать») → агент переобучается на overtriggering; требовать парные shouldn't-кейсы"
+  - "Один LLM-judge оценивает все измерения разом → низкая согласованность; требовать изолированных judge на измерение"
+  - "Задача без reference solution → 0% pass rate трактуется как слабость агента, хотя сломана спецификация"
+  - "Строгое сравнение чисел (ожидается 96.124991, агент дал 96.12) → добавить tolerance в детерминированные грейдеры"
+  - "Общая среда между трайлами (git history, кэш) → завышенный или коррелированный результат; требовать сброс"
+  - "Отчёт по метрикам без чтения транскриптов → невозможно отличить регрессию от бага eval"
+
+examples:
+  - name: "Coding-агент: фикс уязвимости"
+    input:
+      system_description: "Claude Agent SDK, инструменты read_file/edit_file/run_tests, репозиторий FastAPI"
+      agent_type: coding
+      known_failures: "Правит auth без тестов; ломает соседние тесты; не логирует auth_blocked"
+      reliability_requirement: pass@1
+    expected_output_highlights:
+      - "graders: deterministic_tests (fail-to-pass + pass-to-pass), static_analysis (ruff, mypy, bandit), state_check (security_logs), llm_rubric (code_quality)"
+      - "tool_calls: required read_file src/auth/*, edit_file, run_tests — без порядка"
+      - "capability: 15 задач с текущим pass ~40%; regression: 20 задач ~100%"
+
+  - name: "Support-агент с возвратами"
+    input:
+      system_description: "Conversational агент, инструменты verify_identity / fetch_policy / process_refund / send_confirmation"
+      agent_type: conversational
+      known_failures: "Обещает возврат без verify_identity; возвраты >100 без эскалации; грубый тон"
+      reliability_requirement: pass^k
+    expected_output_highlights:
+      - "Симулятор пользователя второй моделью (persona + раздражение)"
+      - "state_check: tickets.status=resolved, refunds.status=processed; transcript max_turns=10"
+      - "llm_rubric отдельными judge: empathy / clarity / groundedness in fetch_policy"
+      - "partial credit: identify 0.3, verify 0.3, refund 0.4"
+      - "pass^3 как основная метрика, объяснение (0.75)^3 ≈ 42%"
+
+  - name: "Скилл из ai-skills (single-turn)"
+    input:
+      system_description: "Скилл python-cli.handle-config-file, рендерится в промпт, ответ — markdown с кодом"
+      agent_type: single-turn
+      known_failures: "Pydantic v1 API; нет приоритетной цепочки источников; ValidationError без перехвата"
+    expected_output_highlights:
+      - "Задачи 1:1 с known_failures + shouldn't-кейсы (минимальный конфиг без env не должен тащить XDG-логику)"
+      - "Грейдеры: regex на 'BaseModel' + 'model_validate', pytest на сгенерированный код, llm_rubric только на обоснование формата"
+      - "Файл evals/python-cli/handle-config-file.cases.yaml в существующей схеме"
+
