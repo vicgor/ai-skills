@@ -8,7 +8,7 @@ cases:
       system_description: "Coding-агент на Agent SDK, инструменты read_file/edit_file/run_tests"
       agent_type: coding
       known_failures: "Ломает соседние тесты; не запускает тесты; переписывает модуль целиком"
-    expect:
+    expected:
       must_contain: ["pass@1", "deterministic_tests", "reference", "shouldn't"]
       must_not_contain: ["в строгом порядке", "exact sequence"]
 
@@ -19,7 +19,7 @@ cases:
       agent_type: conversational
       known_failures: "Возврат без верификации личности"
       reliability_requirement: pass^k
-    expect:
+    expected:
       must_contain: ["pass^", "state_check", "Unknown", "калибров"]
 
   - id: insufficient_failures_no_hallucination
@@ -27,7 +27,7 @@ cases:
     input:
       system_description: "RAG-бот по документации"
       known_failures: "Один раз ответил не по источнику"
-    expect:
+    expected:
       must_contain: ["недостаточно", "собрать"]
       max_task_count: 10
 
@@ -37,7 +37,7 @@ cases:
       system_description: "Research-агент с web_search/fetch/summarize"
       agent_type: research
       known_failures: "Цитирует неавторитетные источники; утверждения без ссылок"
-    expect:
+    expected:
       must_contain: ["groundedness", "coverage", "source quality"]
       must_not_contain: ["сначала web_search, затем fetch"]
 

@@ -99,6 +99,70 @@ def check_output_contracts(registry: dict) -> tuple[Errors, Warnings]:
     return errors, warnings
 
 
+CASE_REQUIRED = ["id", "description", "input", "expected"]
+CASE_ALLOWED = set(CASE_REQUIRED)
+EXPECTED_LIST_KEYS = ["must_contain", "should_not_contain"]
+
+
+def check_eval_structure(registry: dict) -> tuple[Errors, Warnings]:
+    """Every eval case must have id, description, input, expected (not 'expect')."""
+    errors, warnings = [], []
+    for domain, domain_data in registry.get("domains", {}).items():
+        for skill in domain_data.get("skills", []):
+            skill_id = skill["id"]
+            skill_name = skill_id.split(".", 1)[1]
+            eval_file = EVALS_DIR / domain / f"{skill_name}.cases.yaml"
+            if not eval_file.exists():
+                continue
+            rel = eval_file.relative_to(ROOT)
+            try:
+                with open(eval_file) as f:
+                    data = yaml.safe_load(f)
+            except yaml.YAMLError as exc:
+                errors.append(f"[EVAL YAML] {rel} — {exc}")
+                continue
+            if not isinstance(data, dict) or not isinstance(data.get("cases"), list):
+                errors.append(f"[EVAL STRUCTURE] {rel} — нет списка 'cases'")
+                continue
+            if data.get("skill_id") != skill_id:
+                errors.append(
+                    f"[EVAL SKILL_ID] {rel} — skill_id '{data.get('skill_id')}', ожидается '{skill_id}'"
+                )
+            seen_ids = set()
+            for i, case in enumerate(data["cases"], 1):
+                if not isinstance(case, dict):
+                    errors.append(f"[EVAL CASE] {rel} кейс #{i} — не словарь")
+                    continue
+                cid = case.get("id", f"#{i}")
+                where = f"{rel} кейс '{cid}'"
+                if "expect" in case:
+                    errors.append(f"[EVAL KEY] {where} — используй 'expected' вместо 'expect'")
+                for key in CASE_REQUIRED:
+                    if key not in case:
+                        errors.append(f"[EVAL KEY] {where} — нет ключа '{key}'")
+                if "id" in case:
+                    if case["id"] in seen_ids:
+                        errors.append(f"[EVAL DUPLICATE] {rel} — повторяется id '{case['id']}'")
+                    seen_ids.add(case["id"])
+                for key in case:
+                    if key not in CASE_ALLOWED and key != "expect":
+                        warnings.append(f"[EVAL UNKNOWN KEY] {where} — неизвестный ключ '{key}'")
+                expected = case.get("expected")
+                if isinstance(expected, dict):
+                    if not any(k in expected for k in EXPECTED_LIST_KEYS + ["quality"]):
+                        errors.append(f"[EVAL EXPECTED] {where} — пустой expected")
+                    for k in EXPECTED_LIST_KEYS:
+                        v = expected.get(k)
+                        if v is not None and not (isinstance(v, list) and all(isinstance(s, str) for s in v)):
+                            errors.append(f"[EVAL EXPECTED] {where} — '{k}' должен быть списком строк")
+                    q = expected.get("quality")
+                    if q is not None and not isinstance(q, dict):
+                        errors.append(f"[EVAL EXPECTED] {where} — 'quality' должен быть словарём")
+                elif "expected" in case:
+                    errors.append(f"[EVAL EXPECTED] {where} — 'expected' должен быть словарём")
+    return errors, warnings
+
+
 def main() -> int:
     print("=" * 60)
     print("ai-skills validator")
@@ -112,6 +176,7 @@ def main() -> int:
         ("Registry → Files", check_registry_files),
         ("Files → Registry", check_files_in_registry),
         ("Eval coverage", check_evals_exist),
+        ("Eval structure", check_eval_structure),
         ("Output contracts", check_output_contracts),
     ]
 
