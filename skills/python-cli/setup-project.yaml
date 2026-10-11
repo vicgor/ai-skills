@@ -86,7 +86,12 @@ prompt_template: |
      - `uv init`, `uv add`, `uv sync`, `uv run`
   4. Минимальный `src/{project_name}/__init__.py` и `src/{project_name}/main.py`
      с базовой Typer/Click-командой и правильным entrypoint.
-  5. Сниппет GitHub Actions (или заглушка) для lint + test при push.
+  5. CI по значению `{ci_platform}`:
+     - `github-actions` — workflow `.github/workflows/ci.yml` (lint + test при push);
+     - `gitlab-ci` — `.gitlab-ci.yml` с теми же шагами;
+     - `none` — НЕ создавай конфиги CI (никаких workflow-файлов и шагов запуска).
+       Вместо этого выведи только заглушку: раздел «CI» с одной фразой, что CI не настроен,
+       и командами для локальной проверки (`uv run ruff check`, `uv run mypy`, `uv run pytest`).
   6. Отметь, что нужно сделать вручную после запуска команд (git init, .gitignore и т.д.).
 
 quality_checks:
