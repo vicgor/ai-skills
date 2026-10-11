@@ -84,6 +84,8 @@ prompt_template: |
      - `[build-system]` с hatchling или uv build backend
   3. Команды для инициализации проекта через `uv`:
      - `uv init`, `uv add`, `uv sync`, `uv run`
+     Если проект публикуется на PyPI: `uv build`, `uv publish` (или `twine upload dist/*`),
+     проверка `uvx twine check dist/*` и пример `[project.optional-dependencies]` для extras
   4. Минимальный `src/{project_name}/__init__.py` и `src/{project_name}/main.py`
      с базовой Typer/Click-командой и правильным entrypoint.
   5. CI по значению `{ci_platform}`:

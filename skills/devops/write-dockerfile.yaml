@@ -71,10 +71,18 @@ prompt_template: |
   ```dockerfile
   {existing_dockerfile}
   ```
+  ## Правило выбора базового образа
+
+  Если базовый образ — Alpine, а приложение использует нативные расширения
+  (numpy, pandas, psycopg2, lxml, cryptography и т.п.):
+  1. В начале ответа предупреди: Alpine использует musl вместо glibc, бинарные wheels
+     часто недоступны, пакеты собираются из исходников — сборка дольше, образ не всегда меньше.
+  2. Основной Dockerfile дай на python:{python_version}-slim.
+  3. Вариант на Alpine покажи только как опцию, с нужными пакетами (gcc, musl-dev и т.д.).
 
   ## Требования к ответу
 
-  1. Готовый Dockerfile с комментариями к ключевым решениям.
+  1. Готовый Dockerfile с комментариями к ключевым решениям. Основной Dockerfile — на slim, если выбран Alpine с нативными зависимостями
   2. .dockerignore (минимальный, но правильный).
   3. Команды: docker build + docker run с примером.
   4. Что сделано для безопасности: non-root, минимальные права, secrets.
@@ -90,5 +98,6 @@ quality_checks:
 
 known_failures:
   - "Модель использует python:latest → требовать конкретную версию"
+  - "Модель берёт python:alpine для numpy/psycopg2/lxml и т.п. → предупредить про musl и предложить python:3.x-slim"
   - "Модель запускает от root → уточнить requirements явно"
   - "Модель не добавляет .dockerignore → попросить отдельно"

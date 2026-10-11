@@ -77,6 +77,7 @@ prompt_template: |
   4. Testing instructions: точные команды для проверки.
   5. Checklist для ревьюера: на что обратить внимание.
   6. Если есть breaking changes — выдели отдельным блоком ⚠️.
+  7. Если указан Issue, добавь в конец описания строку Closes #N (или Refs #N) дословно как во входных данных
 
 quality_checks:
   - has_title: true

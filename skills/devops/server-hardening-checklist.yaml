@@ -74,6 +74,9 @@ prompt_template: |
   Порядок: начни с наиболее критичного → менее критичное.
   В конце — минимальный мониторинг (что логировать и куда смотреть).
 
+  Обязательно включи защиту SSH от перебора: fail2ban (jail sshd, maxretry, bantime)
+  с командой проверки fail2ban-client status sshd и предупреждением не забанить свой IP
+
 quality_checks:
   - has_checklist: true
   - has_config_snippets: true

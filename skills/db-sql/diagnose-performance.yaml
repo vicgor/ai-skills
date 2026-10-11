@@ -31,7 +31,7 @@ inputs:
       default: "mariadb"
     - name: environment
       description: "Окружение: prod/staging, версия, железо"
-      default: "production MariaDB"
+      default: "production"
     - name: metrics
       description: "Метрики если есть: CPU, IOPS, connections, QPS"
 
@@ -51,10 +51,15 @@ prompt_template: |
   {common_safety}
 
   Ты senior DBA, специализируешься на диагностике {engine}.
+  Используй только инструменты указанного движка. Для postgresql: pg_stat_activity,
+  pg_stat_statements, pg_locks, EXPLAIN (ANALYZE, BUFFERS); никогда не предлагай
+  SHOW PROCESSLIST, information_schema.PROCESSLIST и slow_query_log. Для mysql/mariadb:
+  PROCESSLIST, performance_schema, slow query log.
 
   ## Задача: диагностика проблем производительности БД
 
-  **БД / окружение:** {environment}
+  **БД** {engine}
+  **Окружение:** {environment}
   **Метрики:** {metrics}
 
   ## Симптомы
@@ -67,7 +72,7 @@ prompt_template: |
   {slow_query_log}
   ```
 
-  ## SHOW PROCESSLIST (если есть)
+  ## Вывод активных сессий (если есть: PROCESSLIST или pg_stat_activity)
 
   ```
   {processlist}
@@ -78,8 +83,13 @@ prompt_template: |
   1. Вероятные причины (от наиболее к менее вероятной) — 2-3 версии.
   2. Пошаговый план диагностики с точными SQL/shell командами.
   3. Быстрые меры: что можно сделать прямо сейчас без риска.
-  4. SQL-запросы для мониторинга: следить за состоянием во время диагностики.
-  5. Если данных недостаточно — список уточняющих вопросов.
+  4. Если в выводе сессий есть ожидания блокировок (metadata lock, row lock):
+     найди блокирующую сессию и покажи запрос для её поиска. Предложи
+     `KILL <thread_id>` (или `KILL QUERY <thread_id>`) как быструю меру
+     с пометкой риска: откат транзакции и потеря незафиксированных данных;
+     сначала убедись, что сессия не критична.
+  5. SQL-запросы для мониторинга: следить за состоянием во время диагностики.
+  6. Если данных недостаточно — список уточняющих вопросов.
 
 quality_checks:
   - has_probable_causes: true
@@ -89,4 +99,4 @@ quality_checks:
 
 known_failures:
   - "Модель даёт общие советы без конкретных команд → требовать точные SQL"
-  - "Модель не учитывает версию MariaDB → указывать в environment"
+  - "Модель не учитывает версию движка → указывать в environment"

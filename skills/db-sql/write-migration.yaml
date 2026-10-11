@@ -80,6 +80,9 @@ prompt_template: |
   5. Если нужен pt-online-schema-change или gh-ost — укажи когда и команду.
   6. Шаги деплоя: pre-check → применить → post-check.
   7. Деструктивные операции (DROP COLUMN, TRUNCATE) явно помечай ⚠️.
+  8. Для деструктивных операций (DROP COLUMN, DROP TABLE, удаление данных)
+     обязательно укажи перед миграцией шаг резервного копирования: mysqldump таблицы
+     или снимок и проверку, что копия создана.
 
 quality_checks:
   - has_risk_assessment: true
