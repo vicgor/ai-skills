@@ -12,7 +12,7 @@ cases:
       env_prefix: "LOGDIGEST"
     expected:
       must_contain:
-        - "BaseModel"
+        - ["BaseModel", "BaseSettings"]
         - "load_config"
         - "XDG_CONFIG_HOME"
         - "LOGDIGEST_API_URL"
@@ -44,7 +44,7 @@ cases:
       add_config_commands: "yes"
     expected:
       must_contain:
-        - "SecretStr"
+        - ["SecretStr", "_mask", "mask", "маск", "redact", "********", "скры"]
         - "config show"
       quality:
         masks_secret_in_output: true

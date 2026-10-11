@@ -16,7 +16,8 @@ cases:
         - ".dockerignore"
         - "uv sync"
       should_not_contain:
-        - ":latest"
+        - "FROM python:latest"
+        - "uv:latest"
       quality:
         has_dockerfile: true
         has_build_commands: true

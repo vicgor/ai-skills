@@ -63,9 +63,28 @@ def iter_cases(selector: str | None, case_id: str | None):
                 yield sid, domain, case
 
 
+PLACEHOLDER = re.compile(r"^<см\.\s+(.+?)>$")
+
+
+def resolve_placeholder(value: str) -> str:
+    """Replace '<см. path>' with the first code block of that file (or the whole file)."""
+    m = PLACEHOLDER.match(value.strip())
+    if not m:
+        return value
+    path = ROOT / m.group(1)
+    if not path.exists():
+        return value
+    text = path.read_text()
+    blocks = re.findall(r"```\w*\n(.*?)```", text, re.S)
+    return blocks[0].strip() if blocks else text
+
+
 def build_prompt(skill_id: str, case: dict) -> str:
     skill = load_skill(skill_id)
-    variables = {k: ("" if v is None else str(v)) for k, v in (case.get("input") or {}).items()}
+    variables = {
+        k: resolve_placeholder("" if v is None else str(v))
+        for k, v in (case.get("input") or {}).items()
+    }
     return render_prompt(skill, variables)
 
 
@@ -94,7 +113,12 @@ def call_llm(provider: str, model: str, prompt: str, max_tokens: int, timeout: f
 
     last_err = ""
     for attempt in range(4):
-        r = httpx.post(url, headers=headers, json=body, timeout=timeout)
+        try:
+            r = httpx.post(url, headers=headers, json=body, timeout=timeout)
+        except httpx.TimeoutException:
+            last_err = "timeout"
+            time.sleep(2 ** attempt * 2)
+            continue
         if r.status_code in RETRY_STATUS:
             last_err = f"HTTP {r.status_code}"
             time.sleep(2 ** attempt * 2)

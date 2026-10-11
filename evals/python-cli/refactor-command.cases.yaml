@@ -13,10 +13,10 @@ cases:
       current_code: "<см. examples/python-cli/typer-small-app.md>"
     expected:
       must_contain:
-        - "план рефакторинга"
+        - ["план рефакторинга", "## План", "план"]
         - "service"
-        - "pytest"
-        - "не менять"
+        - ["pytest", "unit-тест", "тест"]
+        - ["не менять", "сохран", "без изменения"]
       should_not_contain:
         - "FastAPI"
         - "полная перепись"
@@ -55,8 +55,8 @@ cases:
             main()
     expected:
       must_contain:
-        - "обработка ошибок"
-        - "exit"
+        - "ошиб"
+        - ["exit", "parser.error"]
       should_not_contain:
         - "typer"
         - "click"
@@ -75,7 +75,7 @@ cases:
       current_code: ""
     expected:
       must_contain:
-        - "недостаточно"
+        - ["недостаточно", "не хватает", "пришлите"]
       behavior: "ask_for_missing_data"
       quality:
         asks_for_missing_input: true

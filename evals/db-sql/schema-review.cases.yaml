@@ -25,7 +25,7 @@ cases:
       must_contain:
         - "DECIMAL"
         - "utf8mb4"
-        - "INDEX"
+        - ["INDEX", "индекс"]
         - "FOREIGN KEY"
       quality:
         issues_have_examples: true

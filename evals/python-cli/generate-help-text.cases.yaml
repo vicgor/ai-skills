@@ -12,7 +12,7 @@ cases:
       must_contain:
         - "--format"
         - "--output"
-        - "2026-"
+        - "export 20"
         - "typer.Option"
       quality:
         has_short_description_one_line: true

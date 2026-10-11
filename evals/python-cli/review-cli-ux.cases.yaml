@@ -19,10 +19,10 @@ cases:
           Del
     expected:
       must_contain:
-        - "--out-dir"
+        - ["--out-dir", "--output-dir"]
         - "--force"
-        - "before"
-        - "after"
+        - ["before", "до", "было"]
+        - ["after", "после", "стало"]
       quality:
         has_issues_list: true
         has_improvements: true

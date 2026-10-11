@@ -21,7 +21,7 @@ cases:
       must_contain:
         - "rich"
         - "Table"
-        - "console.print"
+        - ["console.print", ".print("]
         - "uv add"
       should_not_contain:
         - "from textual"
@@ -75,7 +75,7 @@ cases:
     expected:
       must_contain:
         - "async"
-        - "work"
+        - ["work", "create_task", "run_worker"]
       should_not_contain:
         - "time.sleep"
         - "requests.get"

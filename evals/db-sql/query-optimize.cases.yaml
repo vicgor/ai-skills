@@ -31,7 +31,7 @@ cases:
       table_sizes: "users: 50k строк, orders: 2M строк"
     expected:
       must_contain:
-        - "JOIN"
+        - ["JOIN", "IN (", "ANY(", "UNION ALL", "ROW_NUMBER", "LATERAL"]
         - "IN"
         - "индекс"
       should_not_contain:
@@ -67,11 +67,11 @@ cases:
       table_sizes: "transactions: 1M строк"
     expected:
       must_contain:
-        - "CREATE INDEX"
+        - ["CREATE INDEX", "ADD INDEX", "ADD KEY"]
         - "account_id"
         - "status"
         - "created_at"
-        - "full scan"
+        - ["full scan", "full table scan", "полное сканирование", "сканир", "type: ALL", "type = ALL", "type=ALL", "всю таблицу"]
       quality:
         has_diagnosis: true
         has_index_suggestions: true

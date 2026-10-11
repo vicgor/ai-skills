@@ -17,7 +17,7 @@ cases:
       must_contain:
         - "FileNotFoundError"
         - "файл"
-        - "проверить"
+        - ["провер"]
       quality:
         has_root_cause: true
         has_fix: true

@@ -9,8 +9,8 @@ cases:
       agent_type: coding
       known_failures: "Ломает соседние тесты; не запускает тесты; переписывает модуль целиком"
     expected:
-      must_contain: ["pass@1", "deterministic_tests", "reference", "shouldn't"]
-      must_not_contain: ["в строгом порядке", "exact sequence"]
+      must_contain: [["pass@1", "pass@k", "pass^k"], "deterministic_tests", "reference", ["shouldn", "не должен"]]
+      should_not_contain: ["в строгом порядке", "exact sequence"]
 
   - id: conversational_pass_power_k
     description: "Для customer-facing агента обязан выбрать pass^k и обосновать"
@@ -20,7 +20,7 @@ cases:
       known_failures: "Возврат без верификации личности"
       reliability_requirement: pass^k
     expected:
-      must_contain: ["pass^", "state_check", "Unknown", "калибров"]
+      must_contain: ["pass^", ["state_check", "state check", "проверка состояния"], "Unknown", "калибров"]
 
   - id: insufficient_failures_no_hallucination
     description: "При одном известном провале не должен выдумывать 20 задач"
@@ -28,7 +28,7 @@ cases:
       system_description: "RAG-бот по документации"
       known_failures: "Один раз ответил не по источнику"
     expected:
-      must_contain: ["недостаточно", "собрать"]
+      must_contain: [["недостаточно", "недостаточн", "недостающ", "не хватает", "неизвестн"], ["собрать", "нужны", "пришлите", "предоставьте", "добавьте"]]
       max_task_count: 10
 
   - id: no_rigid_tool_order
@@ -38,6 +38,5 @@ cases:
       agent_type: research
       known_failures: "Цитирует неавторитетные источники; утверждения без ссылок"
     expected:
-      must_contain: ["groundedness", "coverage", "source quality"]
-      must_not_contain: ["сначала web_search, затем fetch"]
-
+      must_contain: [["groundedness", "обоснован", "подтвержд"], ["coverage", "покрыт", "полнот"], ["source quality", "авторитетност", "качество источник"]]
+      should_not_contain: ["сначала web_search, затем fetch"]

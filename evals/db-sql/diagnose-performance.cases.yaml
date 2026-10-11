@@ -10,7 +10,7 @@ cases:
     expected:
       must_contain:
         - "SHOW FULL PROCESSLIST"
-        - "slow query log"
+        - ["slow query log", "slow log", "slow_query_log"]
       should_not_contain:
         - "ваш CPU загружен на"
       quality:

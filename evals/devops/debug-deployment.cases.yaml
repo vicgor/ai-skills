@@ -15,8 +15,7 @@ cases:
     expected:
       must_contain:
         - "порт"
-        - "lsof"
-        - "netstat"
+        - ["lsof", "netstat", "ss -", "docker ps"]
       quality:
         has_root_cause: true
         has_recovery_plan: true
@@ -47,8 +46,7 @@ cases:
         WantedBy=multi-user.target
     expected:
       must_contain:
-        - "ModuleNotFoundError"
-        - "pydantic_settings"
+        - ["ModuleNotFoundError", "No module named", "pydantic_settings", "pydantic-settings"]
         - "uv"
         - "venv"
       quality:

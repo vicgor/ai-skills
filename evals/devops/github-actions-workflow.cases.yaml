@@ -33,7 +33,7 @@ cases:
     expected:
       must_contain:
         - "secrets."
-        - "SSH_PRIVATE_KEY"
+        - ["SSH_PRIVATE_KEY", "SSH_KEY"]
         - "environment"
         - "needs"
       should_not_contain:

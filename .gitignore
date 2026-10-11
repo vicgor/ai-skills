@@ -4,3 +4,4 @@ __pycache__/
 uv.lock
 .DS_Store
 evals/results/
+models.json

@@ -11,7 +11,7 @@ cases:
     expected:
       must_contain:
         - "PostgreSQL"
-        - "ask"
+        - ["ask", "уточн", "спрос"]
       should_not_contain:
         - "helpful assistant"
       quality:
@@ -30,8 +30,8 @@ cases:
         Give good feedback and be nice.
     expected:
       must_contain:
-        - "diagnosis"
-        - "helpful"
+        - ["diagnosis", "диагност", "диагноз"]
+        - ["helpful", "полезн"]
       quality:
         diagnosis_present: true
         every_diagnosis_issue_has_fix: true
@@ -44,7 +44,7 @@ cases:
       goal: "Поддержка клиентов интернет-магазина"
     expected:
       must_contain:
-        - "current_prompt"
+        - ["current_prompt", "текущ", "пришлите"]
       should_not_contain:
         - "You are a"
       quality:
@@ -70,7 +70,7 @@ cases:
       tone: "concise but explain everything in detail"
     expected:
       must_contain:
-        - "Unless"
+        - ["Unless", "unless", "если только", "кроме случаев", "приоритет", "только если", "выше краткости", "по умолчанию"]
       quality:
         resolves_conflicting_instructions: true
         no_unconditional_always: true

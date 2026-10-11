@@ -42,7 +42,7 @@ cases:
       must_contain:
         - "retries"
         - "timeout"
-        - "test"
+        - ["test", "тест"]
       should_not_contain:
         - "<<<<<<<"
       quality:

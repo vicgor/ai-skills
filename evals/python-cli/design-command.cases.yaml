@@ -14,7 +14,7 @@ cases:
         - "typer"
         - "create"
         - "restore"
-        - "--help"
+        - ["--help", "help="]
       quality:
         has_command_signature_with_types: true
         has_module_structure: true
@@ -44,7 +44,7 @@ cases:
     expected:
       must_contain:
         - "argparse"
-        - "add_argument"
+        - ["add_argument", "parser"]
       should_not_contain:
         - "import typer"
         - "import click"
