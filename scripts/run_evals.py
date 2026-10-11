@@ -30,6 +30,18 @@ from render import load_registry, load_skill, render_prompt  # noqa: E402
 EVALS_DIR = ROOT / "evals"
 RESULTS_DIR = EVALS_DIR / "results"
 RETRY_STATUS = {429, 500, 502, 503, 529}
+LAST_FINISH = {"v": None}
+
+
+def _openai_extract(j):
+    ch = j["choices"][0]
+    LAST_FINISH["v"] = ch.get("finish_reason")
+    return ch["message"].get("content") or ""
+
+
+def _anthropic_extract(j):
+    LAST_FINISH["v"] = j.get("stop_reason")
+    return "".join(b.get("text", "") for b in j.get("content", []))
 
 
 def iter_cases(selector: str | None, case_id: str | None):
@@ -66,12 +78,12 @@ def call_llm(provider: str, model: str, prompt: str, max_tokens: int, timeout: f
             "content-type": "application/json",
         }
         body = {"model": model, "max_tokens": max_tokens, "messages": [{"role": "user", "content": prompt}]}
-        extract = lambda j: "".join(b.get("text", "") for b in j.get("content", []))
+        extract = _anthropic_extract
     elif provider == "openai":
         url = os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/") + "/chat/completions"
         headers = {"Authorization": f"Bearer {os.environ['OPENAI_API_KEY']}", "content-type": "application/json"}
         body = {"model": model, "max_tokens": max_tokens, "messages": [{"role": "user", "content": prompt}]}
-        extract = lambda j: j["choices"][0]["message"]["content"]
+        extract = _openai_extract
     elif provider == "ollama":
         url = os.environ.get("OLLAMA_HOST", "http://localhost:11434").rstrip("/") + "/api/chat"
         headers = {"content-type": "application/json"}
@@ -116,8 +128,8 @@ def main() -> int:
     ap.add_argument("--case", help="id одного кейса")
     ap.add_argument("--provider", choices=["anthropic", "openai", "ollama", "dry-run"], default="dry-run")
     ap.add_argument("--model", default=os.environ.get("AI_SKILLS_MODEL"), help="имя модели или env AI_SKILLS_MODEL")
-    ap.add_argument("--max-tokens", type=int, default=4096)
-    ap.add_argument("--timeout", type=float, default=120.0)
+    ap.add_argument("--max-tokens", type=int, default=16000)
+    ap.add_argument("--timeout", type=float, default=600.0)
     ap.add_argument("--list", action="store_true", help="показать кейсы и выйти")
     ap.add_argument("--no-save", action="store_true", help="не сохранять результаты на диск")
     args = ap.parse_args()
@@ -187,6 +199,11 @@ def main() -> int:
             (out_dir / f"{base}.output.md").write_text(output)
 
         failures = check_expected(output, case.get("expected", {}) or {})
+        record["finish_reason"] = LAST_FINISH["v"]
+        if not output.strip():
+            failures.insert(0, "пустой ответ (токены могли уйти на reasoning)")
+        elif LAST_FINISH["v"] in ("length", "max_tokens"):
+            failures.insert(0, "ответ обрезан по лимиту токенов")
         record["failures"] = failures
         if failures:
             record["status"] = "FAIL"
