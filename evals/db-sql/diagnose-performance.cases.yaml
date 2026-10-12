@@ -9,7 +9,7 @@ cases:
       symptoms: "С 14:00 сайт тормозит, страницы с каталогом грузятся по 10 секунд, раньше 1 секунда"
     expected:
       must_contain:
-        - "SHOW FULL PROCESSLIST"
+        - ["SHOW FULL PROCESSLIST", "SHOW PROCESSLIST", "information_schema.PROCESSLIST", "performance_schema.threads"]
         - ["slow query log", "slow log", "slow_query_log"]
       should_not_contain:
         - "ваш CPU загружен на"

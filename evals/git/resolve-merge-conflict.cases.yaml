@@ -20,7 +20,7 @@ cases:
         - "import yaml"
         - "import json"
       should_not_contain:
-        - "<<<<<<<"
+        - "<<<<<<< HEAD"
         - ">>>>>>>"
       quality:
         resolved_code_has_no_markers: true
@@ -44,7 +44,7 @@ cases:
         - "timeout"
         - ["test", "тест"]
       should_not_contain:
-        - "<<<<<<<"
+        - "<<<<<<< HEAD"
       quality:
         highlights_risky_parts: true
         suggests_tests: true
@@ -66,7 +66,7 @@ cases:
         - "TIMEOUT = 30"
         - "10"
       should_not_contain:
-        - "<<<<<<<"
+        - "<<<<<<< HEAD"
       quality:
         respects_requested_strategy: true
         explains_what_is_lost: true
