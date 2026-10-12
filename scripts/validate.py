@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Validates consistency between registry.yaml and actual skill files."""
 
+import re
+import string
 import sys
 from pathlib import Path
 
@@ -14,6 +16,7 @@ ROOT = Path(__file__).parent.parent
 REGISTRY = ROOT / "registry.yaml"
 SKILLS_DIR = ROOT / "skills"
 EVALS_DIR = ROOT / "evals"
+COMMON_DIR = ROOT / "common"
 
 Errors = list[str]
 Warnings = list[str]
@@ -99,6 +102,44 @@ def check_output_contracts(registry: dict) -> tuple[Errors, Warnings]:
     return errors, warnings
 
 
+def check_templates(registry: dict) -> tuple[Errors, Warnings]:
+    """Every {placeholder} in prompt_template must be a declared input or common module,
+    and the template must render with str.format_map (literal braces must be doubled)."""
+    errors, warnings = [], []
+    common = {f"common_{p.stem.replace('-', '_')}" for p in COMMON_DIR.glob("*.md")}
+    for domain_data in registry.get("domains", {}).values():
+        for skill in domain_data.get("skills", []):
+            skill_path = ROOT / skill["file"]
+            if not skill_path.exists():
+                continue
+            with open(skill_path) as f:
+                data = yaml.safe_load(f)
+            template = data.get("prompt_template") or ""
+            inputs = data.get("inputs") or {}
+            declared = {i["name"] for i in (inputs.get("required") or []) + (inputs.get("optional") or [])}
+            try:
+                fields = {
+                    re.split(r"[.\[]", name, maxsplit=1)[0]
+                    for _, name, _, _ in string.Formatter().parse(template)
+                    if name is not None
+                }
+            except ValueError as exc:
+                errors.append(f"[TEMPLATE SYNTAX] {skill['id']} — {exc} (литеральные скобки удваивай: {{{{ }}}})")
+                continue
+            for name in sorted(fields - declared - common):
+                errors.append(f"[TEMPLATE VAR] {skill['id']} — {{{name}}} не объявлен в inputs и не модуль common/")
+            for name in sorted(declared - fields):
+                warnings.append(f"[UNUSED INPUT] {skill['id']} — вход '{name}' не используется в prompt_template")
+            if "" in fields:
+                errors.append(f"[TEMPLATE VAR] {skill['id']} — пустой плейсхолдер {{}}")
+            dummy = {name: "x" for name in declared | common}
+            try:
+                template.format_map(dummy)
+            except (KeyError, IndexError, ValueError, AttributeError) as exc:
+                errors.append(f"[TEMPLATE RENDER] {skill['id']} — не рендерится: {exc!r}")
+    return errors, warnings
+
+
 CASE_REQUIRED = ["id", "description", "input", "expected"]
 CASE_ALLOWED = set(CASE_REQUIRED)
 EXPECTED_LIST_KEYS = ["must_contain", "should_not_contain"]
@@ -149,12 +190,22 @@ def check_eval_structure(registry: dict) -> tuple[Errors, Warnings]:
                         warnings.append(f"[EVAL UNKNOWN KEY] {where} — неизвестный ключ '{key}'")
                 expected = case.get("expected")
                 if isinstance(expected, dict):
-                    if not any(k in expected for k in EXPECTED_LIST_KEYS + ["quality"]):
+                    if not any(k in expected for k in EXPECTED_LIST_KEYS + ["should_not_match", "quality"]):
                         errors.append(f"[EVAL EXPECTED] {where} — пустой expected")
                     for k in EXPECTED_LIST_KEYS:
                         v = expected.get(k)
                         if v is not None and not (isinstance(v, list) and all(isinstance(s, str) or (isinstance(s, list) and s and all(isinstance(o, str) for o in s)) for s in v)):
                             errors.append(f"[EVAL EXPECTED] {where} — '{k}' должен быть списком строк")
+                    patterns = expected.get("should_not_match")
+                    if patterns is not None:
+                        if not (isinstance(patterns, list) and all(isinstance(x, str) for x in patterns)):
+                            errors.append(f"[EVAL EXPECTED] {where} — 'should_not_match' должен быть списком regex-строк")
+                        else:
+                            for x in patterns:
+                                try:
+                                    re.compile(x)
+                                except re.error as exc:
+                                    errors.append(f"[EVAL EXPECTED] {where} — невалидный regex {x!r}: {exc}")
                     q = expected.get("quality")
                     if q is not None and not isinstance(q, dict):
                         errors.append(f"[EVAL EXPECTED] {where} — 'quality' должен быть словарём")
@@ -178,6 +229,7 @@ def main() -> int:
         ("Eval coverage", check_evals_exist),
         ("Eval structure", check_eval_structure),
         ("Output contracts", check_output_contracts),
+        ("Prompt templates", check_templates),
     ]
 
     for check_name, check_fn in checks:

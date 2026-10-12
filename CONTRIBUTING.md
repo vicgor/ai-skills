@@ -88,6 +88,7 @@ cases:
     expected:
       must_contain: ["слово1", "слово2"]
       should_not_contain: ["антипаттерн"]
+      should_not_match: ['^\s*<<<<<<< ']   # regex по всему ответу (re.MULTILINE)
       quality:
         has_X: true
 ```
@@ -111,8 +112,14 @@ cases:
 ### 6. Запусти валидацию
 
 ```bash
+uv sync
 python scripts/validate.py
 ```
+
+Валидатор также проверяет `prompt_template`: каждый `{плейсхолдер}` должен быть
+объявлен в `inputs` или быть модулем `common/`, а литеральные фигурные скобки
+(JSON, код) нужно удваивать: `{{` и `}}`. Те же проверки запускает CI
+(`.github/workflows/ci.yml`) вместе с dry-run всех eval-кейсов.
 
 ---
 

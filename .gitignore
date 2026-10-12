@@ -1,7 +1,6 @@
 .venv/
 __pycache__/
 *.pyc
-uv.lock
 .DS_Store
 evals/results/
 models.json
