@@ -19,8 +19,9 @@ cases:
       must_contain:
         - "import yaml"
         - "import json"
-      should_not_contain:
-        - "<<<<<<< HEAD"
+      should_not_match:
+        # маркер в начале строки = неразрешённый конфликт; цитаты в тексте/командах не ловим
+        - '^\s*(<<<<<<<|>>>>>>>)( |$)'
       quality:
         resolved_code_has_no_markers: true
         has_explanation: true
@@ -42,8 +43,9 @@ cases:
         - "retries"
         - "timeout"
         - ["test", "тест"]
-      should_not_contain:
-        - "<<<<<<< HEAD"
+      should_not_match:
+        # маркер в начале строки = неразрешённый конфликт; цитаты в тексте/командах не ловим
+        - '^\s*(<<<<<<<|>>>>>>>)( |$)'
       quality:
         highlights_risky_parts: true
         suggests_tests: true
@@ -64,8 +66,9 @@ cases:
       must_contain:
         - "TIMEOUT = 30"
         - "10"
-      should_not_contain:
-        - "<<<<<<< HEAD"
+      should_not_match:
+        # маркер в начале строки = неразрешённый конфликт; цитаты в тексте/командах не ловим
+        - '^\s*(<<<<<<<|>>>>>>>)( |$)'
       quality:
         respects_requested_strategy: true
         explains_what_is_lost: true

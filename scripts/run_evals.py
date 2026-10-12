@@ -139,6 +139,9 @@ def check_expected(output: str, expected: dict) -> list[str]:
     for s in expected.get("should_not_contain", []) or []:
         if str(s).lower() in low:
             failures.append(f"найдена запрещённая подстрока: {s!r}")
+    for pattern in expected.get("should_not_match", []) or []:
+        if re.search(pattern, output, re.M):
+            failures.append(f"найдено совпадение с запрещённым шаблоном: {pattern!r}")
     return failures
 
 
