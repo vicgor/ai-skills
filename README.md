@@ -55,6 +55,37 @@ python render.py render python-cli.refactor-command --var framework=typer | pbco
 python render.py render python-cli.refactor-command --var framework=typer | xclip -selection clipboard
 ```
 
+## Результаты evals
+
+Последний полный прогон: 12 октября 2026, тег `evals-66of66`.
+
+| Модель | Лимит токенов | PASS |
+|---|---|---|
+| gpt-6-luna | по умолчанию | 66 из 66 |
+| claude-haiku-5.5 | 64000 | 66 из 66 |
+
+| Домен | Скиллов | Кейсов |
+|---|---|---|
+| python-cli | 9 | 27 |
+| db-sql | 4 | 11 |
+| devops | 4 | 11 |
+| git | 3 | 8 |
+| ai-dev | 2 | 9 |
+| **Итого** | **22** | **66** |
+
+Запуск:
+
+```bash
+python3 scripts/run_evals.py --provider openai --model gpt-6-luna
+python3 scripts/run_evals.py --provider openai --model claude-haiku-5.5 --max-tokens 64000
+```
+
+Заметки:
+
+- На haiku с лимитом 16000 токенов набор давал 59–60 из 66: часть ответов обрезалась, поэтому нужен `--max-tokens 64000`.
+- Результаты отдельных прогонов лежат в `evals/results/<дата-время>/`.
+- Ручные проверки качества (`quality`) выводятся списком, но автоматически не оцениваются: PASS считается только по `must_contain` и `should_not_contain`.
+
 ## Жизненный цикл скилла
 
 1. **Создать** новый YAML в `skills/<domain>/`.
