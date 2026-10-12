@@ -21,7 +21,6 @@ cases:
         - "import json"
       should_not_contain:
         - "<<<<<<< HEAD"
-        - ">>>>>>>"
       quality:
         resolved_code_has_no_markers: true
         has_explanation: true

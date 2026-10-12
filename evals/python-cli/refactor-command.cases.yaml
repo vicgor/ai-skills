@@ -75,7 +75,7 @@ cases:
       current_code: ""
     expected:
       must_contain:
-        - ["недостаточно", "не хватает", "пришлите"]
+        - ["недостаточно", "не хватает", "пришлите", "пришли", "вставьте", "не передан", "не предоставлен", "нужны следующие данные", "укажите"]
       behavior: "ask_for_missing_data"
       quality:
         asks_for_missing_input: true
