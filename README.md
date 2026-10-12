@@ -35,8 +35,9 @@ ai-skills/
 ## Быстрый старт
 
 ```bash
-# Установить зависимости (только PyYAML + click)
-uv pip install pyyaml click
+# Установить зависимости (click, PyYAML, httpx) в .venv по uv.lock
+uv sync
+source .venv/bin/activate
 
 # Список всех скиллов
 python render.py list
@@ -57,12 +58,14 @@ python render.py render python-cli.refactor-command --var framework=typer | xcli
 
 ## Результаты evals
 
-Последний полный прогон: 12 октября 2026, тег `evals-66of66`.
+Тег `evals-66of66` указывает на коммит, на котором сделан последний полный прогон.
 
-| Модель | Лимит токенов | PASS |
-|---|---|---|
-| gpt-6-luna | по умолчанию | 66 из 66 |
-| claude-haiku-5.5 | 64000 | 66 из 66 |
+| Модель | Лимит токенов | Дата | Версия скиллов и кейсов | PASS |
+|---|---|---|---|---|
+| gpt-6-luna | 16000 (по умолчанию) | 12.10.2026 | текущая (тег `evals-66of66`) | 66 из 66 |
+| claude-haiku-5.5 | 64000 | 12.10.2026 | предыдущая (`e2b57bc`), до ужесточения проверок и правок write-eval / diagnose-performance | 66 из 66 |
+
+Haiku на текущей версии ещё не перепрогонялся.
 
 | Домен | Скиллов | Кейсов |
 |---|---|---|
