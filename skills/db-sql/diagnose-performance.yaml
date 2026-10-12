@@ -1,5 +1,5 @@
 id: db-sql.diagnose-performance
-version: "1.0.0"
+version: "1.0.1"
 owner: victor
 status: stable
 tags: [sql, mysql, mariadb, performance, slow-query, processlist, monitoring]
@@ -58,7 +58,7 @@ prompt_template: |
 
   ## Задача: диагностика проблем производительности БД
 
-  **БД** {engine}
+  **БД:** {engine}
   **Окружение:** {environment}
   **Метрики:** {metrics}
 

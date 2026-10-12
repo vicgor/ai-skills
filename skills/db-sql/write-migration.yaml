@@ -1,5 +1,5 @@
 id: db-sql.write-migration
-version: "1.0.0"
+version: "1.0.1"
 owner: victor
 status: stable
 tags: [sql, mysql, mariadb, migration, alembic, flyway, ddl]

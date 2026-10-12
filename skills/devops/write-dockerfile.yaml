@@ -1,5 +1,5 @@
 id: devops.write-dockerfile
-version: "1.0.0"
+version: "1.0.1"
 owner: victor
 status: stable
 tags: [devops, docker, dockerfile, python, security, optimization]

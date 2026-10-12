@@ -1,5 +1,5 @@
 id: python-cli.fix-bug-from-trace
-version: "1.0.0"
+version: "1.0.1"
 owner: victor
 status: stable
 tags: [python, cli, debug, traceback, error, fix]

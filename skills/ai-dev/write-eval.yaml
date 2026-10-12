@@ -1,5 +1,5 @@
 id: ai-dev.write-eval
-version: "2.0.0"
+version: "2.0.1"
 owner: victor
 status: stable
 tags: [ai, llm, agent, eval, testing, grader, rubric, regression]
@@ -104,6 +104,9 @@ prompt_template: |
 
   1. **Eval spec.** Сформулируй 2–4 измерения успеха (например: «не ломает»,
      «делает что просили», «делает хорошо»). Явно укажи, что не измеряем.
+     Для agent_type=research обязательны три измерения: groundedness
+     (утверждения подтверждены источниками), coverage (полнота охвата
+     вопроса), source quality (авторитетность источников).
 
   2. **Task set (20–50 задач).** Источники — только реальные провалы,
      баг-трекер, ручные пред-релизные проверки. Для каждой задачи:

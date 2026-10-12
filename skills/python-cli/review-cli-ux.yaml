@@ -1,5 +1,5 @@
 id: python-cli.review-cli-ux
-version: "1.0.0"
+version: "1.0.1"
 owner: victor
 status: stable
 tags: [python, cli, ux, review, help, error-messages]

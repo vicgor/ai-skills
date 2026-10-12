@@ -1,5 +1,5 @@
 id: ai-dev.design-prompt
-version: "2.0.0"
+version: "2.0.1"
 owner: victor
 status: stable
 tags: [ai, llm, prompt, system-prompt, prompt-engineering, hallucination]

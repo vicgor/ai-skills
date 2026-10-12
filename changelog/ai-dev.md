@@ -1,5 +1,17 @@
 # Changelog: ai-dev skills
 
+## 2026-10-12
+
+### ai-dev.design-prompt — v2.0.1
+- Противоречивые требования (например, «кратко» и «подробно»): промпт обязан назвать главное правило и исключение («Unless ...» / «если только ...») с конкретным лимитом.
+- mode=improve: в каждом пункте диагноза цитировать проблемный фрагмент current_prompt.
+- mode=write: отсутствие «Текущего промпта» не ошибка; при расплывчатом goal — 2–3 уточняющих вопроса.
+- Eval-кейсы: проверки принимают эквивалентные формулировки.
+
+### ai-dev.write-eval — v2.0.1
+- Для agent_type=research обязательны измерения groundedness, coverage и source quality.
+- Eval-кейсы: в no_rigid_tool_order возвращена проверка coverage; в insufficient_failures_no_hallucination убраны слишком общие слова («нужно», «мало», «вопросы»).
+
 ## 2026-10-10
 
 ### ai-dev.write-eval — v2.0.0
