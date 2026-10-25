@@ -9,7 +9,7 @@ from pathlib import Path
 try:
     import yaml
 except ImportError:
-    print("ERROR: PyYAML not installed. Run: pip install pyyaml")
+    print("ERROR: PyYAML not installed. Run: uv sync")
     sys.exit(1)
 
 ROOT = Path(__file__).parent.parent
