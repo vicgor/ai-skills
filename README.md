@@ -86,6 +86,8 @@ uv run python scripts/run_evals.py --provider openai --model gpt-6-luna --jobs 8
 uv run python scripts/run_evals.py --provider openai --model claude-haiku-5.5 --max-tokens 64000 --jobs 8
 ```
 
+`--repeat N` прогоняет каждый кейс N раз и в конце печатает стабильность: сколько кейсов прошли во всех прогонах, а для остальных — доля PASS, какие проверки падали и разброс вердиктов судьи. Сводка пишется в `results.json` (`stability`). Один прогон шумит, поэтому правки промптов лучше проверять с `--repeat 3` или больше.
+
 `--jobs N` гоняет N кейсов параллельно (по умолчанию 1). Сетевые сбои, таймауты и ответы 429/5xx повторяются до 4 раз с паузой 2, 4, 8 с.
 
 Заметки:

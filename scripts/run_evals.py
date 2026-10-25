@@ -6,6 +6,7 @@ Examples:
     python scripts/run_evals.py --provider anthropic --model <model> --skill db-sql
     python scripts/run_evals.py --provider openai --model <model> --jobs 8
     python scripts/run_evals.py --provider openai --model <model> --judge --judge-model <model>
+    python scripts/run_evals.py --provider openai --model <model> --jobs 8 --repeat 5 --judge
     python scripts/run_evals.py --provider openai --model <model> --skill db-sql.write-migration --case destructive_drop_column
     python scripts/run_evals.py --list
 """
@@ -231,18 +232,23 @@ def judge_case(args, case: dict, output: str, quality: dict, out_dir: Path | Non
     return parse_judge(text, quality)
 
 
-def run_case(sid: str, case: dict, args, out_dir: Path | None) -> tuple[dict, list[str]]:
-    """Render, call the model and check one case. Returns (record, lines to print)."""
+def run_case(sid: str, case: dict, args, out_dir: Path | None, rep: int | None = None) -> tuple[dict, list[str]]:
+    """Render, call the model and check one case. Returns (record, lines to print).
+
+    rep — номер повтора при --repeat > 1: добавляется к меткам и именам файлов.
+    """
     cid = case.get("id")
-    label = f"{sid} / {cid}"
+    label = f"{sid} / {cid}" + (f"  #{rep + 1}" if rep is not None else "")
     record = {"skill": sid, "case": cid, "status": "", "failures": [], "quality": (case.get("expected") or {}).get("quality", {})}
+    if rep is not None:
+        record["repeat"] = rep + 1
     try:
         prompt = build_prompt(sid, case)
     except Exception as exc:  # noqa: BLE001
         record.update(status="ERROR", failures=[f"рендер: {exc}"])
         return record, [f"ERROR  {label}", f"         рендер: {exc}"]
 
-    base = safe_name(f"{sid}__{cid}")
+    base = safe_name(f"{sid}__{cid}" + (f"__r{rep + 1}" if rep is not None else ""))
     if out_dir:
         (out_dir / f"{base}.prompt.md").write_text(prompt)
 
@@ -284,15 +290,52 @@ def run_case(sid: str, case: dict, args, out_dir: Path | None) -> tuple[dict, li
 
 
 def run_cases(selected: list, args, out_dir: Path | None) -> list[dict]:
-    """Run cases with args.jobs workers; print each case as it finishes, return records in input order."""
-    results: list[dict | None] = [None] * len(selected)
+    """Run cases (each args.repeat times) with args.jobs workers; print each run as it finishes,
+    return records in input order (all repeats of a case together)."""
+    repeat = getattr(args, "repeat", 1)
+    tasks = [(sid, case, r if repeat > 1 else None) for sid, _, case in selected for r in range(repeat)]
+    results: list[dict | None] = [None] * len(tasks)
     with ThreadPoolExecutor(max_workers=args.jobs) as pool:
-        futures = {pool.submit(run_case, sid, case, args, out_dir): i for i, (sid, _, case) in enumerate(selected)}
+        futures = {pool.submit(run_case, sid, case, args, out_dir, r): i for i, (sid, case, r) in enumerate(tasks)}
         for future in as_completed(futures):
             record, lines = future.result()
             results[futures[future]] = record
             print("\n".join(lines), flush=True)
     return results
+
+
+def stability(results: list[dict]) -> list[dict]:
+    """Group repeated runs by case: share of PASS runs and per-flag verdict counts, in input order."""
+    groups: dict[tuple[str, str], dict] = {}
+    for r in results:
+        g = groups.setdefault(
+            (r["skill"], r["case"]), {"skill": r["skill"], "case": r["case"], "runs": 0, "pass": 0, "failures": {}, "quality": {}}
+        )
+        g["runs"] += 1
+        g["pass"] += r["status"] == "PASS"
+        for f in r["failures"]:
+            g["failures"][f] = g["failures"].get(f, 0) + 1
+        for flag, v in r.get("quality_verdicts", {}).items():
+            counts = g["quality"].setdefault(flag, {k: 0 for k in JUDGE_VERDICTS})
+            counts[v["verdict"]] += 1
+    return list(groups.values())
+
+
+def stability_lines(groups: list[dict]) -> list[str]:
+    """Human-readable report: only cases and flags that are not 100% stable."""
+    runs = groups[0]["runs"] if groups else 0
+    stable = sum(1 for g in groups if g["pass"] == g["runs"])
+    lines = [f"Стабильность: {stable} из {len(groups)} кейсов прошли во всех {runs} прогонах"]
+    for g in groups:
+        flaky_flags = {f: c for f, c in g["quality"].items() if c["pass"] != g["runs"]}
+        if g["pass"] == g["runs"] and not flaky_flags:
+            continue
+        lines.append(f"  {g['pass']}/{g['runs']}  {g['skill']} / {g['case']}")
+        for failure, n in g["failures"].items():
+            lines.append(f"         {n}× {failure}")
+        for flag, c in flaky_flags.items():
+            lines.append(f"         quality {flag}: " + ", ".join(f"{k} {c[k]}" for k in JUDGE_VERDICTS if c[k]))
+    return lines
 
 
 def main() -> int:
@@ -304,6 +347,7 @@ def main() -> int:
     ap.add_argument("--max-tokens", type=int, default=16000)
     ap.add_argument("--timeout", type=float, default=600.0)
     ap.add_argument("--jobs", type=int, default=1, help="сколько кейсов гонять параллельно (по умолчанию 1)")
+    ap.add_argument("--repeat", type=int, default=1, help="прогнать каждый кейс N раз и показать стабильность")
     ap.add_argument("--judge", action="store_true", help="оценить флаги quality моделью-судьёй")
     ap.add_argument("--judge-model", help="модель-судья (по умолчанию --model), тот же провайдер")
     ap.add_argument("--judge-strict", action="store_true", help="вердикт fail судьи делает кейс FAIL")
@@ -322,8 +366,8 @@ def main() -> int:
         print(f"\nВсего: {len(selected)}")
         return 0
 
-    if args.jobs < 1:
-        print("--jobs должен быть ≥ 1.", file=sys.stderr)
+    if args.jobs < 1 or args.repeat < 1:
+        print("--jobs и --repeat должны быть ≥ 1.", file=sys.stderr)
         return 2
     if args.judge_strict:
         args.judge = True
@@ -341,18 +385,25 @@ def main() -> int:
     if not args.no_save:
         out_dir.mkdir(parents=True, exist_ok=True)
 
-    print(f"Провайдер: {args.provider}  Модель: {args.model or '-'}  Кейсов: {len(selected)}  Потоков: {args.jobs}\n")
+    print(
+        f"Провайдер: {args.provider}  Модель: {args.model or '-'}  Кейсов: {len(selected)}"
+        f"  Повторов: {args.repeat}  Потоков: {args.jobs}\n"
+    )
     results = run_cases(selected, args, None if args.no_save else out_dir)
     failed = sum(1 for r in results if r["status"] == "FAIL")
     errored = sum(1 for r in results if r["status"] == "ERROR")
 
     total = len(results)
     passed = sum(1 for r in results if r["status"] == "PASS")
-    print(f"\nИтого: {total} кейсов" + (f", {passed} PASS, {failed} FAIL, {errored} ERROR" if live else f", ERROR: {errored}"))
+    noun = "прогонов" if args.repeat > 1 else "кейсов"
+    print(f"\nИтого: {total} {noun}" + (f", {passed} PASS, {failed} FAIL, {errored} ERROR" if live else f", ERROR: {errored}"))
     verdicts = [v["verdict"] for r in results for v in r.get("quality_verdicts", {}).values()]
     if verdicts:
         counts = ", ".join(f"{verdicts.count(k)} {k}" for k in JUDGE_VERDICTS)
         print(f"Quality (судья {args.judge_model or args.model}): {len(verdicts)} флагов — {counts}")
+    groups = stability(results) if args.repeat > 1 and live else None
+    if groups:
+        print("\n" + "\n".join(stability_lines(groups)))
 
     if not args.no_save:
         summary = {
@@ -360,8 +411,11 @@ def main() -> int:
             "model": args.model,
             "judge_model": (args.judge_model or args.model) if args.judge else None,
             "timestamp": stamp,
+            "repeat": args.repeat,
             "results": results,
         }
+        if groups:
+            summary["stability"] = groups
         (out_dir / "results.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2))
         print(f"Результаты: {out_dir.relative_to(ROOT)}")
 

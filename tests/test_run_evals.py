@@ -14,6 +14,8 @@ from run_evals import (
     run_case,
     run_cases,
     safe_name,
+    stability,
+    stability_lines,
 )
 
 
@@ -187,8 +189,8 @@ def test_call_llm_does_not_retry_client_error(monkeypatch, no_sleep):
 # --- run_case / run_cases ----------------------------------------------------
 
 
-def make_args(provider="openai", jobs=1):
-    return argparse.Namespace(provider=provider, model="m", max_tokens=100, timeout=1, jobs=jobs)
+def make_args(provider="openai", jobs=1, repeat=1):
+    return argparse.Namespace(provider=provider, model="m", max_tokens=100, timeout=1, jobs=jobs, repeat=repeat)
 
 
 CASE = {"id": "c", "input": {}, "expected": {"must_contain": ["yes"], "quality": {"has_x": True}}}
@@ -370,3 +372,71 @@ def test_run_case_without_judge_flag_does_not_call_judge(fake_llm_with_judge):
     assert models == ["m"]
     assert "quality_verdicts" not in record
     assert lines[-1] == "         ручная проверка: has_x"
+
+
+# --- repeat / stability ------------------------------------------------------
+
+
+def test_run_cases_repeat_groups_runs_and_names_files(monkeypatch, tmp_path, capsys):
+    monkeypatch.setattr(run_evals, "build_prompt", lambda sid, case: f"prompt:{case['id']}")
+    monkeypatch.setattr(run_evals, "call_llm", lambda p, m, prompt, *a: ("yes", "stop"))
+    cases = [("s.k", "s", dict(CASE, id="a")), ("s.k", "s", dict(CASE, id="b"))]
+
+    records = run_cases(cases, make_args(jobs=4, repeat=3), tmp_path)
+
+    assert [(r["case"], r["repeat"]) for r in records] == [("a", 1), ("a", 2), ("a", 3), ("b", 1), ("b", 2), ("b", 3)]
+    assert sorted(p.name for p in tmp_path.glob("*.output.md")) == [
+        f"s.k__{c}__r{n}.output.md" for c in "ab" for n in (1, 2, 3)
+    ]
+    assert "s.k / a  #2" in capsys.readouterr().out
+
+
+def test_run_cases_without_repeat_has_no_suffix(fake_llm, tmp_path):
+    fake_llm["prompt:c"] = ("yes", "stop")
+    (record,) = run_cases([("s.k", "s", CASE)], make_args(), tmp_path)
+    assert "repeat" not in record
+    assert (tmp_path / "s.k__c.output.md").exists()
+
+
+def rec(case, status, failures=(), verdicts=None):
+    r = {"skill": "s.k", "case": case, "status": status, "failures": list(failures)}
+    if verdicts is not None:
+        r["quality_verdicts"] = {f: {"verdict": v, "reason": ""} for f, v in verdicts.items()}
+    return r
+
+
+def test_stability_counts_passes_failures_and_verdicts():
+    results = [
+        rec("a", "PASS", verdicts={"has_x": "pass"}),
+        rec("a", "FAIL", ["нет обязательной подстроки: 'x'"], {"has_x": "fail"}),
+        rec("a", "FAIL", ["нет обязательной подстроки: 'x'"], {"has_x": "unknown"}),
+        rec("b", "PASS"),
+        rec("b", "PASS"),
+        rec("b", "PASS"),
+    ]
+    a, b = stability(results)
+    assert (a["case"], a["runs"], a["pass"]) == ("a", 3, 1)
+    assert a["failures"] == {"нет обязательной подстроки: 'x'": 2}
+    assert a["quality"] == {"has_x": {"pass": 1, "fail": 1, "unknown": 1}}
+    assert (b["runs"], b["pass"], b["quality"]) == (3, 3, {})
+
+
+def test_stability_lines_report_only_unstable():
+    groups = stability(
+        [
+            rec("a", "PASS", verdicts={"has_x": "pass"}),
+            rec("a", "FAIL", ["нет X"], {"has_x": "fail"}),
+            rec("b", "PASS", verdicts={"has_y": "pass"}),
+            rec("b", "PASS", verdicts={"has_y": "unknown"}),
+            rec("c", "PASS", verdicts={"has_z": "pass"}),
+            rec("c", "PASS", verdicts={"has_z": "pass"}),
+        ]
+    )
+    assert stability_lines(groups) == [
+        "Стабильность: 2 из 3 кейсов прошли во всех 2 прогонах",
+        "  1/2  s.k / a",
+        "         1× нет X",
+        "         quality has_x: pass 1, fail 1",
+        "  2/2  s.k / b",
+        "         quality has_y: pass 1, unknown 1",
+    ]
