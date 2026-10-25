@@ -5,7 +5,16 @@ import httpx
 import pytest
 
 import run_evals
-from run_evals import call_llm, check_expected, resolve_placeholder, run_case, run_cases, safe_name
+from run_evals import (
+    build_judge_prompt,
+    call_llm,
+    check_expected,
+    parse_judge,
+    resolve_placeholder,
+    run_case,
+    run_cases,
+    safe_name,
+)
 
 
 class TestCheckExpected:
@@ -249,3 +258,115 @@ def test_run_cases_parallel_keeps_input_order(monkeypatch, fake_llm, capsys):
     assert all(r["status"] == "PASS" for r in records)
     printed = [line.split()[-1] for line in capsys.readouterr().out.splitlines() if line.startswith("PASS")]
     assert printed[0] == "c5"  # печатаются по мере готовности
+
+
+# --- judge -------------------------------------------------------------------
+
+
+class TestParseJudge:
+    def test_valid_json(self):
+        text = '{"has_x": {"verdict": "pass", "reason": "есть"}, "has_y": {"verdict": "FAIL", "reason": "нет"}}'
+        assert parse_judge(text, ["has_x", "has_y"]) == {
+            "has_x": {"verdict": "pass", "reason": "есть"},
+            "has_y": {"verdict": "fail", "reason": "нет"},
+        }
+
+    def test_json_wrapped_in_text_and_code_fence(self):
+        text = 'Вот оценка:\n```json\n{"has_x": {"verdict": "unknown", "reason": "неясно"}}\n```'
+        assert parse_judge(text, ["has_x"])["has_x"]["verdict"] == "unknown"
+
+    @pytest.mark.parametrize(
+        "text",
+        ["не JSON вовсе", "{broken", '{"has_x": "pass"}', '{"has_x": {"verdict": "maybe"}}', "[1, 2]", "{}"],
+    )
+    def test_malformed_or_missing_is_unknown(self, text):
+        assert parse_judge(text, ["has_x"]) == {
+            "has_x": {"verdict": "unknown", "reason": "судья не вернул корректный вердикт"}
+        }
+
+    def test_extra_keys_are_ignored(self):
+        text = '{"has_x": {"verdict": "pass", "reason": ""}, "other": {"verdict": "fail"}}'
+        assert list(parse_judge(text, ["has_x"])) == ["has_x"]
+
+
+def test_build_judge_prompt_lists_criteria_and_keys():
+    prompt = build_judge_prompt(
+        {"id": "c", "description": "Ответ без кода"}, "ОТВЕТ", {"asks_for_missing_input": True, "max_code_blocks": 0}
+    )
+    assert "Ответ без кода" in prompt
+    assert "<answer>\nОТВЕТ\n</answer>" in prompt
+    assert "- `asks_for_missing_input`\n" in prompt
+    assert "- `max_code_blocks` (ожидаемое значение: 0)" in prompt
+    assert '"max_code_blocks": {"verdict": "pass|fail|unknown"' in prompt
+
+
+def make_judge_args(**kw):
+    args = make_args()
+    args.judge, args.judge_model, args.judge_strict = True, "judge-m", False
+    for k, v in kw.items():
+        setattr(args, k, v)
+    return args
+
+
+@pytest.fixture
+def fake_llm_with_judge(monkeypatch):
+    """Ответ модели — 'yes'; судья (judge-m) отвечает judge_answer[0]. Запоминает модели вызовов."""
+    judge_answer = ['{"has_x": {"verdict": "fail", "reason": "нет X"}}']
+    models = []
+    monkeypatch.setattr(run_evals, "build_prompt", lambda sid, case: "prompt")
+
+    def llm(provider, model, prompt, *a):
+        models.append(model)
+        return (judge_answer[0], "stop") if model == "judge-m" else ("yes", "stop")
+
+    monkeypatch.setattr(run_evals, "call_llm", llm)
+    return judge_answer, models
+
+
+def test_run_case_judge_reports_without_failing(fake_llm_with_judge, tmp_path):
+    _, models = fake_llm_with_judge
+    record, lines = run_case("s.k", CASE, make_judge_args(), tmp_path)
+    assert models == ["m", "judge-m"]
+    assert record["status"] == "PASS"
+    assert record["quality_verdicts"] == {"has_x": {"verdict": "fail", "reason": "нет X"}}
+    assert lines[-1] == "         quality fail    has_x"
+    assert (tmp_path / "s.k__c.judge.md").exists()
+
+
+def test_run_case_judge_strict_turns_fail_verdict_into_failure(fake_llm_with_judge):
+    record, _ = run_case("s.k", CASE, make_judge_args(judge_strict=True), None)
+    assert record["status"] == "FAIL"
+    assert record["failures"] == ["quality: has_x — нет X"]
+
+
+def test_run_case_judge_strict_ignores_unknown(fake_llm_with_judge):
+    fake_llm_with_judge[0][0] = '{"has_x": {"verdict": "unknown", "reason": "?"}}'
+    record, _ = run_case("s.k", CASE, make_judge_args(judge_strict=True), None)
+    assert record["status"] == "PASS"
+
+
+def test_run_case_judge_error_gives_unknown(monkeypatch, fake_llm_with_judge):
+    def llm(provider, model, prompt, *a):
+        if model == "judge-m":
+            raise RuntimeError("retries exhausted (timeout)")
+        return "yes", "stop"
+
+    monkeypatch.setattr(run_evals, "call_llm", llm)
+    record, _ = run_case("s.k", CASE, make_judge_args(judge_strict=True), None)
+    assert record["status"] == "PASS"
+    assert record["quality_verdicts"]["has_x"]["verdict"] == "unknown"
+    assert "ошибка вызова судьи" in record["quality_verdicts"]["has_x"]["reason"]
+
+
+def test_run_case_judge_defaults_to_main_model(fake_llm_with_judge):
+    _, models = fake_llm_with_judge
+    run_case("s.k", CASE, make_judge_args(judge_model=None), None)
+    assert models == ["m", "m"]
+
+
+def test_run_case_without_judge_flag_does_not_call_judge(fake_llm_with_judge):
+    _, models = fake_llm_with_judge
+    record, lines = run_case("s.k", CASE, make_args(), None)
+    assert models == ["m"]
+    assert "quality_verdicts" not in record
+    assert lines[-1] == "         ручная проверка: has_x"

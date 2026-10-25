@@ -89,7 +89,17 @@ uv run python scripts/run_evals.py --provider openai --model claude-haiku-5.5 --
 
 - На haiku с лимитом 16000 токенов набор давал 59–60 из 66: часть ответов обрезалась, поэтому нужен `--max-tokens 64000`.
 - Результаты отдельных прогонов лежат в `evals/results/<дата-время>/`.
-- Ручные проверки качества (`quality`) выводятся списком, но автоматически не оцениваются: PASS считается только по `must_contain` и `should_not_contain`.
+- PASS считается по `must_contain`, `should_not_contain` и `should_not_match`. Флаги `quality` без `--judge` только выводятся списком для ручной проверки.
+
+### Оценка флагов quality судьёй
+
+```bash
+uv run python scripts/run_evals.py --provider openai --model gpt-6-luna --jobs 8 --judge --judge-model claude-haiku-5.5
+```
+
+- `--judge` — после ответа модели отдельный вызов судьи оценивает каждый флаг `quality`: `pass`, `fail` или `unknown` с причиной. Вердикты пишутся в `results.json` (`quality_verdicts`), ответ судьи — в `<кейс>.judge.md`.
+- `--judge-model` — модель-судья того же провайдера; по умолчанию `--model`. Лучше брать другую модель, чем оцениваемая.
+- По умолчанию вердикты судьи на PASS/FAIL не влияют, выводится только сводка. `--judge-strict` превращает `fail` судьи в FAIL кейса; `unknown` кейс не роняет.
 
 ## Жизненный цикл скилла
 

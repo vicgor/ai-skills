@@ -5,6 +5,7 @@ Examples:
     python scripts/run_evals.py --provider dry-run
     python scripts/run_evals.py --provider anthropic --model <model> --skill db-sql
     python scripts/run_evals.py --provider openai --model <model> --jobs 8
+    python scripts/run_evals.py --provider openai --model <model> --judge --judge-model <model>
     python scripts/run_evals.py --provider openai --model <model> --skill db-sql.write-migration --case destructive_drop_column
     python scripts/run_evals.py --list
 """
@@ -164,6 +165,72 @@ def safe_name(text: str) -> str:
     return re.sub(r"[^A-Za-z0-9_.-]+", "_", text)
 
 
+JUDGE_VERDICTS = ("pass", "fail", "unknown")
+JUDGE_PROMPT = """Ты строгий и беспристрастный эксперт-оценщик. Оцени ответ ассистента по каждому критерию отдельно.
+
+## Задача, на которую отвечал ассистент
+{description}
+
+## Ответ ассистента
+<answer>
+{output}
+</answer>
+
+## Критерии
+{criteria}
+
+## Правила
+- Оценивай только то, что есть в ответе. Не додумывай за ассистента.
+- pass — критерий явно выполнен; fail — явно не выполнен; unknown — по ответу нельзя уверенно решить.
+- Сомневаешься между pass и fail — ставь unknown.
+- reason — одно короткое предложение, со ссылкой на конкретное место ответа.
+
+Верни только JSON без пояснений вокруг, ровно с этими ключами:
+{{{keys}}}
+"""
+
+
+def build_judge_prompt(case: dict, output: str, quality: dict) -> str:
+    criteria = "\n".join(
+        f"- `{name}`" + ("" if value is True else f" (ожидаемое значение: {value})") for name, value in quality.items()
+    )
+    keys = ", ".join(f'"{name}": {{"verdict": "pass|fail|unknown", "reason": "..."}}' for name in quality)
+    return JUDGE_PROMPT.format(
+        description=case.get("description") or case.get("id"), output=output, criteria=criteria, keys=keys
+    )
+
+
+def parse_judge(text: str, flags) -> dict:
+    """Extract {flag: {verdict, reason}} from the judge answer; anything missing or malformed is 'unknown'."""
+    data = {}
+    start, end = text.find("{"), text.rfind("}")
+    if start != -1 and end > start:
+        try:
+            data = json.loads(text[start : end + 1])
+        except json.JSONDecodeError:
+            data = {}
+    verdicts = {}
+    for flag in flags:
+        item = data.get(flag) if isinstance(data, dict) else None
+        verdict = str(item.get("verdict", "")).lower() if isinstance(item, dict) else ""
+        if verdict in JUDGE_VERDICTS:
+            verdicts[flag] = {"verdict": verdict, "reason": str(item.get("reason", ""))}
+        else:
+            verdicts[flag] = {"verdict": "unknown", "reason": "судья не вернул корректный вердикт"}
+    return verdicts
+
+
+def judge_case(args, case: dict, output: str, quality: dict, out_dir: Path | None, base: str) -> dict:
+    prompt = build_judge_prompt(case, output, quality)
+    try:
+        text, _ = call_llm(args.provider, args.judge_model or args.model, prompt, args.max_tokens, args.timeout)
+    except Exception as exc:  # noqa: BLE001
+        return {flag: {"verdict": "unknown", "reason": f"ошибка вызова судьи: {exc}"} for flag in quality}
+    if out_dir:
+        (out_dir / f"{base}.judge.md").write_text(text)
+    return parse_judge(text, quality)
+
+
 def run_case(sid: str, case: dict, args, out_dir: Path | None) -> tuple[dict, list[str]]:
     """Render, call the model and check one case. Returns (record, lines to print)."""
     cid = case.get("id")
@@ -198,10 +265,20 @@ def run_case(sid: str, case: dict, args, out_dir: Path | None) -> tuple[dict, li
     elif finish in TRUNCATED:
         failures.insert(0, "ответ обрезан по лимиту токенов")
     record["finish_reason"] = finish
+
+    verdicts = {}
+    if getattr(args, "judge", False) and record["quality"] and output.strip():
+        verdicts = judge_case(args, case, output, record["quality"], out_dir, base)
+        record["quality_verdicts"] = verdicts
+        if getattr(args, "judge_strict", False):
+            failures += [f"quality: {flag} — {v['reason']}" for flag, v in verdicts.items() if v["verdict"] == "fail"]
+
     record["failures"] = failures
     record["status"] = "FAIL" if failures else "PASS"
     lines = [f"{record['status']:<6} {label}"] + [f"         - {f}" for f in failures]
-    if record["quality"]:
+    if verdicts:
+        lines += [f"         quality {v['verdict']:<7} {flag}" for flag, v in verdicts.items()]
+    elif record["quality"]:
         lines.append(f"         ручная проверка: {', '.join(record['quality'].keys())}")
     return record, lines
 
@@ -227,6 +304,9 @@ def main() -> int:
     ap.add_argument("--max-tokens", type=int, default=16000)
     ap.add_argument("--timeout", type=float, default=600.0)
     ap.add_argument("--jobs", type=int, default=1, help="сколько кейсов гонять параллельно (по умолчанию 1)")
+    ap.add_argument("--judge", action="store_true", help="оценить флаги quality моделью-судьёй")
+    ap.add_argument("--judge-model", help="модель-судья (по умолчанию --model), тот же провайдер")
+    ap.add_argument("--judge-strict", action="store_true", help="вердикт fail судьи делает кейс FAIL")
     ap.add_argument("--list", action="store_true", help="показать кейсы и выйти")
     ap.add_argument("--no-save", action="store_true", help="не сохранять результаты на диск")
     args = ap.parse_args()
@@ -245,6 +325,8 @@ def main() -> int:
     if args.jobs < 1:
         print("--jobs должен быть ≥ 1.", file=sys.stderr)
         return 2
+    if args.judge_strict:
+        args.judge = True
     live = args.provider != "dry-run"
     if live and not args.model:
         print("Укажи --model или переменную AI_SKILLS_MODEL.", file=sys.stderr)
@@ -267,9 +349,19 @@ def main() -> int:
     total = len(results)
     passed = sum(1 for r in results if r["status"] == "PASS")
     print(f"\nИтого: {total} кейсов" + (f", {passed} PASS, {failed} FAIL, {errored} ERROR" if live else f", ERROR: {errored}"))
+    verdicts = [v["verdict"] for r in results for v in r.get("quality_verdicts", {}).values()]
+    if verdicts:
+        counts = ", ".join(f"{verdicts.count(k)} {k}" for k in JUDGE_VERDICTS)
+        print(f"Quality (судья {args.judge_model or args.model}): {len(verdicts)} флагов — {counts}")
 
     if not args.no_save:
-        summary = {"provider": args.provider, "model": args.model, "timestamp": stamp, "results": results}
+        summary = {
+            "provider": args.provider,
+            "model": args.model,
+            "judge_model": (args.judge_model or args.model) if args.judge else None,
+            "timestamp": stamp,
+            "results": results,
+        }
         (out_dir / "results.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2))
         print(f"Результаты: {out_dir.relative_to(ROOT)}")
 
