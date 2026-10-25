@@ -4,6 +4,7 @@
 Examples:
     python scripts/run_evals.py --provider dry-run
     python scripts/run_evals.py --provider anthropic --model <model> --skill db-sql
+    python scripts/run_evals.py --provider openai --model <model> --jobs 8
     python scripts/run_evals.py --provider openai --model <model> --skill db-sql.write-migration --case destructive_drop_column
     python scripts/run_evals.py --list
 """
@@ -15,6 +16,7 @@ import os
 import re
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
 
@@ -30,18 +32,22 @@ from render import load_registry, load_skill, render_prompt  # noqa: E402
 EVALS_DIR = ROOT / "evals"
 RESULTS_DIR = EVALS_DIR / "results"
 RETRY_STATUS = {429, 500, 502, 503, 529}
-LAST_FINISH = {"v": None}
+RETRY_ATTEMPTS = 4
+TRUNCATED = {"length", "max_tokens"}
+sleep = time.sleep  # подменяется в тестах
 
 
-def _openai_extract(j):
+def _openai_extract(j) -> tuple[str, str | None]:
     ch = j["choices"][0]
-    LAST_FINISH["v"] = ch.get("finish_reason")
-    return ch["message"].get("content") or ""
+    return ch["message"].get("content") or "", ch.get("finish_reason")
 
 
-def _anthropic_extract(j):
-    LAST_FINISH["v"] = j.get("stop_reason")
-    return "".join(b.get("text", "") for b in j.get("content", []))
+def _anthropic_extract(j) -> tuple[str, str | None]:
+    return "".join(b.get("text", "") for b in j.get("content", [])), j.get("stop_reason")
+
+
+def _ollama_extract(j) -> tuple[str, str | None]:
+    return j["message"]["content"], j.get("done_reason")
 
 
 def iter_cases(selector: str | None, case_id: str | None):
@@ -88,7 +94,8 @@ def build_prompt(skill_id: str, case: dict) -> str:
     return render_prompt(skill, variables)
 
 
-def call_llm(provider: str, model: str, prompt: str, max_tokens: int, timeout: float) -> str:
+def call_llm(provider: str, model: str, prompt: str, max_tokens: int, timeout: float) -> tuple[str, str | None]:
+    """Return (text, finish_reason). Retries on network errors, timeouts and 429/5xx."""
     if provider == "anthropic":
         url = "https://api.anthropic.com/v1/messages"
         headers = {
@@ -106,22 +113,30 @@ def call_llm(provider: str, model: str, prompt: str, max_tokens: int, timeout: f
     elif provider == "ollama":
         url = os.environ.get("OLLAMA_HOST", "http://localhost:11434").rstrip("/") + "/api/chat"
         headers = {"content-type": "application/json"}
-        body = {"model": model, "stream": False, "messages": [{"role": "user", "content": prompt}]}
-        extract = lambda j: j["message"]["content"]
+        body = {
+            "model": model,
+            "stream": False,
+            "options": {"num_predict": max_tokens},
+            "messages": [{"role": "user", "content": prompt}],
+        }
+        extract = _ollama_extract
     else:
         raise ValueError(f"unknown provider: {provider}")
 
     last_err = ""
-    for attempt in range(4):
+    for attempt in range(RETRY_ATTEMPTS):
+        if attempt:
+            sleep(2 ** attempt)
         try:
             r = httpx.post(url, headers=headers, json=body, timeout=timeout)
         except httpx.TimeoutException:
             last_err = "timeout"
-            time.sleep(2 ** attempt * 2)
+            continue
+        except httpx.TransportError as exc:  # обрыв соединения, DNS, reset и т.п.
+            last_err = f"{type(exc).__name__}: {exc}"
             continue
         if r.status_code in RETRY_STATUS:
             last_err = f"HTTP {r.status_code}"
-            time.sleep(2 ** attempt * 2)
             continue
         r.raise_for_status()
         return extract(r.json())
@@ -149,6 +164,60 @@ def safe_name(text: str) -> str:
     return re.sub(r"[^A-Za-z0-9_.-]+", "_", text)
 
 
+def run_case(sid: str, case: dict, args, out_dir: Path | None) -> tuple[dict, list[str]]:
+    """Render, call the model and check one case. Returns (record, lines to print)."""
+    cid = case.get("id")
+    label = f"{sid} / {cid}"
+    record = {"skill": sid, "case": cid, "status": "", "failures": [], "quality": (case.get("expected") or {}).get("quality", {})}
+    try:
+        prompt = build_prompt(sid, case)
+    except Exception as exc:  # noqa: BLE001
+        record.update(status="ERROR", failures=[f"рендер: {exc}"])
+        return record, [f"ERROR  {label}", f"         рендер: {exc}"]
+
+    base = safe_name(f"{sid}__{cid}")
+    if out_dir:
+        (out_dir / f"{base}.prompt.md").write_text(prompt)
+
+    if args.provider == "dry-run":
+        record["status"] = "RENDERED"
+        return record, [f"OK     {label}  (промпт {len(prompt)} символов)"]
+
+    try:
+        output, finish = call_llm(args.provider, args.model, prompt, args.max_tokens, args.timeout)
+    except Exception as exc:  # noqa: BLE001
+        record.update(status="ERROR", failures=[f"вызов модели: {exc}"])
+        return record, [f"ERROR  {label}", f"         вызов модели: {exc}"]
+
+    if out_dir:
+        (out_dir / f"{base}.output.md").write_text(output)
+
+    failures = check_expected(output, case.get("expected") or {})
+    if not output.strip():
+        failures.insert(0, "пустой ответ (токены могли уйти на reasoning)")
+    elif finish in TRUNCATED:
+        failures.insert(0, "ответ обрезан по лимиту токенов")
+    record["finish_reason"] = finish
+    record["failures"] = failures
+    record["status"] = "FAIL" if failures else "PASS"
+    lines = [f"{record['status']:<6} {label}"] + [f"         - {f}" for f in failures]
+    if record["quality"]:
+        lines.append(f"         ручная проверка: {', '.join(record['quality'].keys())}")
+    return record, lines
+
+
+def run_cases(selected: list, args, out_dir: Path | None) -> list[dict]:
+    """Run cases with args.jobs workers; print each case as it finishes, return records in input order."""
+    results: list[dict | None] = [None] * len(selected)
+    with ThreadPoolExecutor(max_workers=args.jobs) as pool:
+        futures = {pool.submit(run_case, sid, case, args, out_dir): i for i, (sid, _, case) in enumerate(selected)}
+        for future in as_completed(futures):
+            record, lines = future.result()
+            results[futures[future]] = record
+            print("\n".join(lines), flush=True)
+    return results
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--skill", help="домен (db-sql) или id скилла (db-sql.write-migration)")
@@ -157,6 +226,7 @@ def main() -> int:
     ap.add_argument("--model", default=os.environ.get("AI_SKILLS_MODEL"), help="имя модели или env AI_SKILLS_MODEL")
     ap.add_argument("--max-tokens", type=int, default=16000)
     ap.add_argument("--timeout", type=float, default=600.0)
+    ap.add_argument("--jobs", type=int, default=1, help="сколько кейсов гонять параллельно (по умолчанию 1)")
     ap.add_argument("--list", action="store_true", help="показать кейсы и выйти")
     ap.add_argument("--no-save", action="store_true", help="не сохранять результаты на диск")
     args = ap.parse_args()
@@ -172,6 +242,9 @@ def main() -> int:
         print(f"\nВсего: {len(selected)}")
         return 0
 
+    if args.jobs < 1:
+        print("--jobs должен быть ≥ 1.", file=sys.stderr)
+        return 2
     live = args.provider != "dry-run"
     if live and not args.model:
         print("Укажи --model или переменную AI_SKILLS_MODEL.", file=sys.stderr)
@@ -186,65 +259,10 @@ def main() -> int:
     if not args.no_save:
         out_dir.mkdir(parents=True, exist_ok=True)
 
-    results = []
-    failed = errored = 0
-    print(f"Провайдер: {args.provider}  Модель: {args.model or '-'}  Кейсов: {len(selected)}\n")
-
-    for sid, _, case in selected:
-        cid = case.get("id")
-        label = f"{sid} / {cid}"
-        record = {"skill": sid, "case": cid, "status": "", "failures": [], "quality": case.get("expected", {}).get("quality", {})}
-        try:
-            prompt = build_prompt(sid, case)
-        except Exception as exc:  # noqa: BLE001
-            record.update(status="ERROR", failures=[f"рендер: {exc}"])
-            errored += 1
-            print(f"ERROR  {label}\n         рендер: {exc}")
-            results.append(record)
-            continue
-
-        base = safe_name(f"{sid}__{cid}")
-        if not args.no_save:
-            (out_dir / f"{base}.prompt.md").write_text(prompt)
-
-        if not live:
-            record["status"] = "RENDERED"
-            print(f"OK     {label}  (промпт {len(prompt)} символов)")
-            results.append(record)
-            continue
-
-        try:
-            output = call_llm(args.provider, args.model, prompt, args.max_tokens, args.timeout)
-        except Exception as exc:  # noqa: BLE001
-            record.update(status="ERROR", failures=[f"вызов модели: {exc}"])
-            errored += 1
-            print(f"ERROR  {label}\n         вызов модели: {exc}")
-            results.append(record)
-            continue
-
-        if not args.no_save:
-            (out_dir / f"{base}.output.md").write_text(output)
-
-        failures = check_expected(output, case.get("expected", {}) or {})
-        record["finish_reason"] = LAST_FINISH["v"]
-        if not output.strip():
-            failures.insert(0, "пустой ответ (токены могли уйти на reasoning)")
-        elif LAST_FINISH["v"] in ("length", "max_tokens"):
-            failures.insert(0, "ответ обрезан по лимиту токенов")
-        record["failures"] = failures
-        if failures:
-            record["status"] = "FAIL"
-            failed += 1
-            print(f"FAIL   {label}")
-            for f in failures:
-                print(f"         - {f}")
-        else:
-            record["status"] = "PASS"
-            print(f"PASS   {label}")
-        if record["quality"]:
-            flags = ", ".join(record["quality"].keys())
-            print(f"         ручная проверка: {flags}")
-        results.append(record)
+    print(f"Провайдер: {args.provider}  Модель: {args.model or '-'}  Кейсов: {len(selected)}  Потоков: {args.jobs}\n")
+    results = run_cases(selected, args, None if args.no_save else out_dir)
+    failed = sum(1 for r in results if r["status"] == "FAIL")
+    errored = sum(1 for r in results if r["status"] == "ERROR")
 
     total = len(results)
     passed = sum(1 for r in results if r["status"] == "PASS")

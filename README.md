@@ -79,9 +79,11 @@ Haiku на текущей версии ещё не перепрогонялся.
 Запуск:
 
 ```bash
-python3 scripts/run_evals.py --provider openai --model gpt-6-luna
-python3 scripts/run_evals.py --provider openai --model claude-haiku-5.5 --max-tokens 64000
+uv run python scripts/run_evals.py --provider openai --model gpt-6-luna --jobs 8
+uv run python scripts/run_evals.py --provider openai --model claude-haiku-5.5 --max-tokens 64000 --jobs 8
 ```
+
+`--jobs N` гоняет N кейсов параллельно (по умолчанию 1). Сетевые сбои, таймауты и ответы 429/5xx повторяются до 4 раз с паузой 2, 4, 8 с.
 
 Заметки:
 
