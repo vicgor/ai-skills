@@ -1,5 +1,5 @@
 id: git.pr-description
-version: "1.0.1"
+version: "1.0.2"
 owner: victor
 status: stable
 tags: [git, pull-request, github, code-review, documentation]
@@ -76,7 +76,10 @@ prompt_template: |
   3. Changes: конкретный список изменений по файлам/компонентам.
   4. Testing instructions: точные команды для проверки.
   5. Checklist для ревьюера: на что обратить внимание.
-  6. Если есть breaking changes — выдели отдельным блоком ⚠️.
+  6. Breaking changes: если поле «Breaking changes» выше не пустое или изменение ломает
+     совместимость (удаление/переименование опций, API, форматов без алиаса) — сразу после
+     заголовка PR блок «## ⚠️ BREAKING CHANGES»: что сломается и как мигрировать.
+     Этот блок обязателен и не заменяется упоминанием в Summary или Changes.
   7. Если указан Issue, добавь в конец описания строку Closes #N (или Refs #N) дословно как во входных данных
 
 quality_checks:

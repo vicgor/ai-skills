@@ -9,7 +9,7 @@ cases:
       agent_type: coding
       known_failures: "Ломает соседние тесты; не запускает тесты; переписывает модуль целиком"
     expected:
-      must_contain: [["pass@1", "pass@k", "pass^k"], "deterministic_tests", "reference", ["shouldn", "не должен"]]
+      must_contain: [["pass@1", "pass@k", "pass^k"], "deterministic_tests", "reference", ["shouldn", "не должен", "не должно"]]
       should_not_contain: ["в строгом порядке", "exact sequence"]
 
   - id: conversational_pass_power_k

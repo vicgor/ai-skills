@@ -2,6 +2,14 @@
 
 ## 2026-10-25
 
+Правки по замеру стабильности (`--repeat 5 --judge`, прогон 20261025-121537: 325/330 PASS, 61/66 кейсов стабильны). После правок затронутые скиллы — 70/70 PASS, 165/165 флагов pass.
+
+### python-cli.generate-help-text — v1.0.3
+- Примеры вызывают команду по имени из описания (`mycli export 2025-01`), а не `python cli.py 2025-01`.
+
+### python-cli.handle-config-file (только eval-кейсы)
+- secret_field_not_printed: `config show` засчитывается и как `command("show")`.
+
 Правки по вердиктам судьи (`run_evals.py --judge`): прогон до правок 20261025-102711 (65/66, quality 145 pass / 7 fail / 2 unknown), после — 20261025-105406 (66/66, quality 152 pass / 0 fail / 2 unknown).
 
 ### python-cli.generate-help-text — v1.0.2

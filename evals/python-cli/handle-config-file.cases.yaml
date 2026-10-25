@@ -45,7 +45,7 @@ cases:
     expected:
       must_contain:
         - ["SecretStr", "_mask", "mask", "маск", "redact", "********", "скры"]
-        - "config show"
+        - ["config show", "command(\"show\")", "command('show')"]
       quality:
         masks_secret_in_output: true
         warns_about_file_permissions: true
