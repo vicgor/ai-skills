@@ -71,7 +71,7 @@ cases:
     expected:
       must_contain:
         - "exit"
-        - "stderr"
+        - ["stderr", "err=True"]
       quality:
         stays_on_requested_focus: true
         notes_wrong_exit_code: true

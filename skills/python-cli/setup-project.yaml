@@ -1,5 +1,5 @@
 id: python-cli.setup-project
-version: "1.0.1"
+version: "1.0.2"
 owner: victor
 status: stable
 tags: [python, cli, uv, pyproject, packaging, linting, mypy, ruff, setup]
@@ -90,6 +90,8 @@ prompt_template: |
      с базовой Typer/Click-командой и правильным entrypoint.
   5. CI по значению `{ci_platform}`:
      - `github-actions` — workflow `.github/workflows/ci.yml` (lint + test при push);
+       если публикация на PyPI — отдельный job или workflow публикации по тегу `v*`
+       (`uv build` + `uv publish`, trusted publishing или секрет `PYPI_API_TOKEN`);
      - `gitlab-ci` — `.gitlab-ci.yml` с теми же шагами;
      - `none` — НЕ создавай конфиги CI (никаких workflow-файлов и шагов запуска).
        Вместо этого выведи только заглушку: раздел «CI» с одной фразой, что CI не настроен,

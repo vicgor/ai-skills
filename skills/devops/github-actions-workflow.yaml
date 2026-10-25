@@ -1,5 +1,5 @@
 id: devops.github-actions-workflow
-version: "1.0.0"
+version: "1.0.1"
 owner: victor
 status: stable
 tags: [devops, github-actions, ci-cd, python, testing, deployment]
@@ -82,6 +82,11 @@ prompt_template: |
   4. Список секретов для Settings → Secrets and variables.
   5. Если matrix — покажи как настроить.
   6. Комментарии к нетривиальным шагам.
+  7. Раздел «Оптимизации» в тексте ответа, а не только в YAML: что закэшировано, по какому
+     ключу кэш инвалидируется и за счёт чего ускоряется прогон (что не скачивается и не
+     собирается повторно). Плюс concurrency/отмена устаревших прогонов, если применимо.
+  8. Если передан существующий workflow — раздел «Что изменено и почему»: каждое изменение
+     отдельной строкой «было → стало → зачем».
 
 quality_checks:
   - has_workflow_yaml: true

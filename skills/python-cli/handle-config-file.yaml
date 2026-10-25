@@ -1,5 +1,5 @@
 id: python-cli.handle-config-file
-version: "1.0.0"
+version: "1.0.1"
 owner: victor
 status: stable
 tags: [python, cli, config, toml, yaml, pydantic, settings, dotenv, xdg]
@@ -159,6 +159,13 @@ prompt_template: |
   {app_name} config init    # создать конфиг с дефолтами
   ```
   Полный код каждой команды.
+
+  ### 11. Секретные поля
+  Поля с токенами, паролями и ключами (token, password, secret, key):
+  - тип `SecretStr`, в `config show` — маска вместо значения;
+  - раздел «Риски»: предупреди, что секрет в файле хранится открытым текстом; файл с правами
+    `600` (`os.chmod(path, 0o600)` при `config init` и `config set`, проверка прав при загрузке);
+  - альтернатива: env-переменная или системный keyring.
 
 quality_checks:
   - has_format_rationale: true

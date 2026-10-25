@@ -1,5 +1,5 @@
 id: devops.write-dockerfile
-version: "1.0.1"
+version: "1.0.2"
 owner: victor
 status: stable
 tags: [devops, docker, dockerfile, python, security, optimization]
@@ -88,6 +88,12 @@ prompt_template: |
   4. Что сделано для безопасности: non-root, минимальные права, secrets.
   5. Как оптимизированы слои: порядок COPY/RUN для кэширования.
   6. Если multi-stage — объясни разделение builder/runtime.
+  7. Если передан существующий Dockerfile — раздел «Что изменено и почему»: каждое изменение
+     отдельной строкой «было → стало → зачем». Включи всё: базовый образ, порядок слоёв,
+     ENV-переменные, пользователя (useradd/USER), флаги COPY (--chown), .dockerignore, CMD.
+     Ни одно изменение не должно остаться без объяснения: перед ответом пройди по новому
+     Dockerfile построчно и проверь, что каждая инструкция или флаг, которых не было в исходном
+     (включая COPY --from, WORKDIR, ENV UV_*, аргументы CMD/gunicorn), есть в этом списке.
 
 quality_checks:
   - has_dockerfile: true
