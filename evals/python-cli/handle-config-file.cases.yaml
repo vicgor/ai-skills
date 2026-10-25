@@ -30,9 +30,11 @@ cases:
       config_fields: "base_dir: str"
       add_config_commands: "no"
     expected:
-      should_not_contain:
-        - "config set"
-        - "config init"
+      # ловим определение команд, а не упоминание в тексте («config set не добавлял»)
+      should_not_match:
+        - '\.command\(\s*["''](show|set|init)["'']'
+        - '\bdef\s+config_(show|set|init)\b'
+        - '^\s*(\$\s*)?[\w-]+\s+config\s+(show|set|init)\b'
       quality:
         respects_add_config_commands_no: true
 

@@ -3,7 +3,7 @@ description: "Тест-кейсы для проверки скилла generate-
 
 cases:
   - id: detailed_help_with_examples
-    description: "Развёрнутый стиль: короткое и длинное описание, 3-5 примеров с реальными данными, готовый фрагмент кода"
+    description: "Развёрнутый стиль: короткое и длинное описание, 3-5 примеров с реальными данными, фрагмент кода — запускаемый каркас команды со справкой для каждой опции (тело функции — заглушка TODO, реализация не требуется)"
     input:
       framework: "typer"
       style: "развёрнутый"
@@ -17,11 +17,11 @@ cases:
       quality:
         has_short_description_one_line: true
         has_3_to_5_examples: true
-        has_ready_code_snippet: true
+        snippet_is_runnable_skeleton_with_help_per_option: true
         has_notes: true
 
   - id: short_style_one_line
-    description: "style=краткий: одна строка описания без длинных примеров"
+    description: "style=краткий: только одна строка описания и фрагмент кода с help для опции; без длинного описания, примеров, заметок и вопросов"
     input:
       framework: "click"
       style: "краткий"
